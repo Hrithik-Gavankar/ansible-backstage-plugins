@@ -71,6 +71,7 @@ nav:
       - plugins/scaffolder.md
       - plugins/self-service.md
   - Features:
+      - Portal NFS composition (PoC): next/portal-sdk-nfs-composition.md
       - features/external-authentication.md
       - features/users-teams-organizations.md
       - features/job-templates.md

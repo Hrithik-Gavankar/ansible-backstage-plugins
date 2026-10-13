@@ -1,0 +1,250 @@
+# Portal NFS composition
+
+## Current scope
+
+The ANSTRAT-2497 PoC composes entity tabs, overview cards, entity actions,
+catalog item actions, and scaffolder fields through static NFS declarations.
+The original self-service collections, execution environment, repository,
+template, and task routes remain available. Built-in detail content retains
+its layout; native contributions extend it rather than replace it.
+
+The source development app defaults to NFS; `?portalFrontend=legacy` is an
+explicit fallback. This experimental contract does not complete Phase 6 content
+extraction or the full architecture.
+
+Dynamic loading and original-page contributions have been exercised on
+`quay.io/rhdh-community/rhdh:next-2.1`, including installation from packed
+exports. That deployment uses mock AAP authentication and the local APME
+gateway. Separately, the source NFS app has been exercised with real AAP login,
+native scan-only operations reaching `completed`, persisted findings, and
+automatic summary refresh. These are separate acceptance checks; successful
+discovery or scan submission alone does not prove a completed assessment.
+
+The duplicate `/portal/catalog`, `/portal/entity/...`, and `/portal/start`
+routes and their page components are removed. They are not hidden compatibility
+pages. The root `/` redirects to Templates; contribution APIs remain installed
+independently of any catalog or detail page.
+
+## Composition model
+
+The host owns the `entity.detail.tabs` interaction and placement. Contributors
+declare static Blueprint extensions in their `./alpha` entry points.
+NFS supplies typed entity/catalog descriptors to `api:portal/contributions`,
+an app-scoped API extension owned by the `portal` frontend plugin. Pages share
+its validated snapshot through `portalContributionsApiRef`. There is no native global contribution registry,
+module-load registration, or imperative module resolver in this path.
+
+The adapters live in `@ansible/portal-extension-api/alpha` and
+`@ansible/portal-extension-host/alpha`. Shared extension data references use
+stable IDs rather than a shared mutable singleton. Installing a plugin loads
+its declarations, but component loaders are deferred until filtering and
+authorization complete. Only the selected eligible tab loads its component.
+
+The provider uses `ApiBlueprint`, avoiding an app-root wrapper that the
+installed Backstage API restricts to the app plugin. Scaffolder fields retain
+their separate input on the native templates page. Operations remain separate
+from presentation and receive the current subject, not contributor-supplied URLs.
+
+## Integrating the host
+
+### Prerequisites
+
+- An NFS app with a host frontend plugin whose plugin ID is `portal`.
+- `@backstage/frontend-plugin-api` 0.17.1 and compatible platform packages.
+- A host page that resolves the current entity and canonical content type.
+- A host entitlement resolver for declared entitlement requirements.
+
+### Procedure
+
+1. Install `createPortalContributionProvider()` from
+   `@ansible/portal-extension-host/alpha` once in the `portal` frontend plugin.
+   The provider's extension ID is `api:portal/contributions`.
+2. Extend the existing host layout with `useNativeEntityPage` and
+   `NativeEntityActionMenu`; use `NativeCatalogItemActions` inside an existing
+   catalog row menu. `createPortalEntityPage` and `createPortalCatalogPage`
+   remain reusable host factories, but installing Portal does not create a
+   second catalog or entity UI.
+3. Render `PortalEntityTabs` with the descriptors and an
+   `EntityContributionContext`. The host supplies the entity, canonical content
+   type, and optional source observations. Wrap legacy component trees with
+   `compatWrapper`, as demonstrated in the composition tests.
+4. Supply `availableExperiences` when an experience is disabled.
+5. Supply `checkEntitlement` from host authorization. It receives the declared
+   entitlement and subject; the host resolves active organization scope.
+   Missing resolvers, denied decisions, and failed checks suppress entitled tabs.
+6. Install the contributor's NFS feature through app discovery or dynamic
+   loading. Do not import its legacy `index.ts` for side effects.
+7. Rebuild the host and contributors together. Earlier PoC declarations
+   attached to `page:portal/entity`; they must use the shared provider attachment.
+
+### Verification
+
+From the repository root, run:
+
+```bash
+yarn test --runInBand workspaces/portal-core/plugins/portal-extension-host workspaces/self-service/plugins/self-service/src/alpha.test.tsx workspaces/apme/plugins/backstage-apme/src/alpha.test.tsx
+```
+
+The host tests exercise real NFS discovery, filtering, selection, permission
+denial, configuration and experience gates, entitlement fail-closed behavior,
+manifest rejection, and failure isolation. The APME test uses its actual NFS
+declaration and substitutes the Quality component to avoid a live backend.
+Shared-provider tests also cover cross-page discovery, NFS-disabled extensions,
+operation subjects, follow-on navigation, and refresh of already-selected results.
+
+## Contribution contract
+
+`EntityDetailTabBlueprint.make` accepts a name and a descriptor:
+
+- `manifest`: plugin metadata and capability declarations.
+- `capabilityId`, `entryPointId`: references to the capability and entity-tab
+  entry point. Labels, order, content scope, and permission come from the entry.
+- `attachment`: exactly `entity.detail.tabs` for this contract.
+- `loader`: deferred component loader receiving the current subject.
+- `appliesToSourceKinds`: optional source constraints.
+- `enabledByConfig`: optional configuration key; explicit `true` is required.
+- `requiredEntitlements`: optional IDs declared in the manifest.
+- `isApplicable`: optional synchronous or asynchronous predicate. It narrows
+  scope; it cannot broaden it. Exceptions suppress the tab.
+
+The entry must have kind `entity-tab`, surface `entity-page`, and a slot launch
+targeting `entity.detail.tabs`. Its content scope must be non-empty, known, and
+within capability scope. Runtime predicates stay on the descriptor, not in
+serializable capability metadata.
+
+The host checks ownership against the actual NFS plugin, API compatibility,
+references, region, content scope, and duplicate IDs. Invalid descriptors are
+logged and omitted without removing the rest of the page. Filtering proceeds
+through content/source scope, experience/configuration, permission, entitlement,
+and predicate before component loading. Selected components are error-bounded.
+
+## APME entry point
+
+`@ansible/plugin-backstage-apme/alpha` default-exports an `apme` frontend plugin.
+It declares the Quality tab, overview summary, scan action, catalog action,
+and repository URL field, and registers the existing
+API factory through `ApiBlueprint`. It does not import `plugin.ts` or register
+legacy contributions.
+
+The native declarations also cover repository Quality activity and Dependencies,
+catalog Quality/settings/Violations tabs, table columns, the Add repository
+workflow launcher, and deregistration. Scanning requires
+`ansible.apme.enabled: true` and the host-resolved
+`apme.scanning` entitlement. Configuration alone is not an entitlement decision.
+
+## Acceptance boundaries
+
+- The packed `next-2.1` deployment uses mock AAP authentication. The source NFS
+  app was verified with real AAP login and two completed standalone checks on
+  the existing `my-ns-my-col` test repository. Persisted scan count increased
+  from two to four, with one finding. APME refreshes its summary while a
+  background operation is active, then stops polling; the Portal host does not
+  need scan-specific logic. No remediation, branch, or PR was applied.
+- The named `test-amazon-aws` manual entry was re-registered through the native
+  field/workflow and deregistered through its native entity action. Catalog
+  count changed from 123 to 124 to 123; confirmed removal redirected without a
+  manual page reload. The existing APME project ID and zero-scan history were
+  unchanged. These counts are test evidence, not expected deployment defaults.
+- The earlier AWS dependency-resolution failure is not evidence against native
+  discovery, but scans of that larger repository still need their own successful
+  assessment evidence. Do not weaken Galaxy server validation to make them pass.
+- Complete Phase 6 content extraction, query/write contracts, and picker migration.
+- Compatibility validation is intentionally limited to `next-2.1` for this slice.
+  The host resolves one active organization from server configuration, never user namespace.
+- The native app does not import APME's legacy entry point for registration side
+  effects. The explicitly selected legacy fallback still has its own registration.
+  Do not install both registration paths in the same native app.
+
+## Navigation and local app shell
+
+Plugins own page routes and icon metadata. Portal navigation selects discovered
+pages; it does not install plugins or grant permissions. The self-service native
+pages provide the same Home, History, Build, Collections, and GitHub icons as
+the legacy sidebar. RBAC and Settings retain their platform plugin icons.
+
+Enable the Portal navigation adapter by disabling the stock singleton attachment:
+
+```yaml
+app:
+  extensions:
+    - nav-content:app/sidebar: false
+    - nav-content:app/portal: true
+portal:
+  navigation:
+    items:
+      - id: templates
+        path: /self-service
+        title: Templates
+```
+
+An item selects exactly one `path` or NFS `page` extension ID. Optional `title`
+overrides its label, and `placement: bottom` pins it below the primary items.
+An expandable group instead declares a title and child links:
+
+```yaml
+portal:
+  navigation:
+    topOffset: 64
+    items:
+      - id: administration
+        title: Administration
+        placement: bottom
+        children:
+          - id: rbac
+            page: page:rbac
+            title: RBAC
+      - id: settings
+        page: page:user-settings
+        title: Settings
+        placement: bottom
+```
+
+To make Administration navigate directly to RBAC, replace `children` with
+`page: page:rbac`. This works for any item, not only Administration. Missing
+plugin pages and empty groups are omitted; IDs and route targets must be unique.
+Group icons inherit the first available child icon; icon overrides are not a
+navigation config field. The `paths`/`bottomPaths` configuration remains a
+compatibility fallback only when `items` is absent. Nested item data is exposed
+through the host's `@deepVisibility frontend` schema.
+
+The source app registers native RBAC, user settings, and Search features. Its
+global header reuses the existing AAP/identity logout behavior through an
+app-owned root wrapper. RHDH retains its own platform header instead of loading
+the source app wrapper. Guest users can see navigation but remain subject to
+page permissions; an RBAC 403 is not a missing route.
+
+Restart the source dev server after changing configuration or schema visibility.
+Re-export and restart RHDH after changing dynamic plugins. The fork startup
+guide in automation-portal-local documents workspace/packed exports, the full
+navigation example, cache validators, and non-destructive refresh steps.
+
+## Task history and RBAC
+
+The native frontend provides Task history at `/self-service/create/tasks`, with
+task details below that path. It has a separate navigation entry alongside the
+template wizard. The stock RBAC frontend is a platform plugin, not a Portal
+contribution; permission configuration alone does not install its UI. Native
+deployment must explicitly enable its package without broadening administrator
+identities or permission grants.
+
+## Troubleshooting
+
+### Installed contributor has no tab
+
+Check `api:portal/contributions`, installed NFS features, current content type, configuration, experience,
+permission, and entitlement decisions. Inspect `[Portal NFS] Rejected entity tab`
+and `[Portal NFS] Cannot activate` diagnostics. Unsupported content is omitted,
+not shown as an error.
+
+### Task history or RBAC is missing
+
+Open `/self-service/create/tasks` directly to distinguish missing navigation
+from a route or permission failure. Check `page:portal-scaffolder/history` and
+the deployed bundle. For RBAC, inspect installed dynamic packages and the
+existing administrator configuration; do not bypass restrictions with broader grants.
+
+### Component fails to load
+
+The selected tab displays a contained failure while the host page remains
+available. Check the contribution ID, failed chunk request, remote assets, and
+compatible platform versions before changing the contribution contract.
