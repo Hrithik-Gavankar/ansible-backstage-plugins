@@ -40,10 +40,10 @@ jobs:
     name: Test with Node.js ${{ matrix.node-version }}
     runs-on: ubuntu-latest
     permissions:
-        actions: read
-        checks: read
-        contents: read
-        id-token: write
+      actions: read
+      checks: read
+      contents: read
+      id-token: write
     env:
       NODE_OPTIONS: --max-old-space-size=8192
     strategy:
@@ -67,8 +67,8 @@ jobs:
       - name: Install dependencies
         uses: backstage/actions/yarn-install@b3c1841fd69e1658ac631afafd0fb140a2309024 # v0.6.17
         with:
-            cache-prefix: ${{ github.ref_name }}-${{ runner.os }}-${{ matrix.node-version }}
-  
+          cache-prefix: ${{ github.ref_name }}-${{ runner.os }}-${{ matrix.node-version }}
+
       - name: Check dependency version pins
         run: bash scripts/check-dependency-pins.sh
 
@@ -90,11 +90,11 @@ jobs:
           yarn run test:all
           npx -y nyc report --reporter html --reporter text -t coverage --report-dir coverage/summary
 
-      # Filter coverage to only include plugins/ directory
+      # Keep plugin coverage across all workspaces, excluding app/backend packages.
       - name: Filter coverage for plugins only
         run: |
-          # Create filtered coverage file containing only plugins/ paths
-          awk '/^SF:/{found=/^SF:plugins\//} found' ./coverage/lcov.info > ./coverage/lcov-plugins.info || true
+          awk '/^SF:/{found=/^SF:(.*\/)?workspaces\/[^\/]+\/plugins\//} found' ./coverage/lcov.info > ./coverage/lcov-plugins.info
+          test -s ./coverage/lcov-plugins.info
 
       - name: Upload coverage report to Codecov
         uses: codecov/codecov-action@v4
@@ -114,7 +114,7 @@ jobs:
             ./coverage/lcov-plugins.info
             ./coverage/summary/
           retention-days: 30
-  
+
       - name: Upload JUnit XML results to PDE
         if: >
           github.event_name != 'pull_request' ||
@@ -136,7 +136,7 @@ jobs:
             echo "junit.xml not found!"
             exit 1
           fi
-          
+
   all-green:
     if: ${{ always() }}
     name: check
@@ -160,4 +160,3 @@ jobs:
             exit(1)
           print('All jobs succeeded!')
           "
-          

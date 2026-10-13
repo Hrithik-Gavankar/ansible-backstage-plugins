@@ -30,6 +30,8 @@ where versioned packages apply.
 
 ### Fixed
 
+- **Workspace CI coverage** includes plugin source paths across all four workspaces and rejects empty filtered reports; Sonar source/test roots and generated-artifact exclusions now match the workspace layout.
+
 - **Portal NFS app** restores distinct self-service sidebar icons, native RBAC and Settings pages, and the source development app's global header and account/logout controls.
 
 - **AAP resource picker** (self-service): selection handling and typing for single vs multi-select resource lists.

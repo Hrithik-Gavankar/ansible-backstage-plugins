@@ -1,30 +1,5 @@
 # Portal NFS composition
 
-## Current scope
-
-The ANSTRAT-2497 PoC composes entity tabs, overview cards, entity actions,
-catalog item actions, and scaffolder fields through static NFS declarations.
-The original self-service collections, execution environment, repository,
-template, and task routes remain available. Built-in detail content retains
-its layout; native contributions extend it rather than replace it.
-
-The source development app defaults to NFS; `?portalFrontend=legacy` is an
-explicit fallback. This experimental contract does not complete Phase 6 content
-extraction or the full architecture.
-
-Dynamic loading and original-page contributions have been exercised on
-`quay.io/rhdh-community/rhdh:next-2.1`, including installation from packed
-exports. That deployment uses mock AAP authentication and the local APME
-gateway. Separately, the source NFS app has been exercised with real AAP login,
-native scan-only operations reaching `completed`, persisted findings, and
-automatic summary refresh. These are separate acceptance checks; successful
-discovery or scan submission alone does not prove a completed assessment.
-
-The duplicate `/portal/catalog`, `/portal/entity/...`, and `/portal/start`
-routes and their page components are removed. They are not hidden compatibility
-pages. The root `/` redirects to Templates; contribution APIs remain installed
-independently of any catalog or detail page.
-
 ## Composition model
 
 The host owns the `entity.detail.tabs` interaction and placement. Contributors

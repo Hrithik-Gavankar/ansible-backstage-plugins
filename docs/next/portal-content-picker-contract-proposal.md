@@ -6,7 +6,7 @@
 > **To:** Content Management team (ANSTRAT-1758)
 > **Date:** 2026-10-06
 > **Status:** Draft — supersedes previous "operation contract" proposal
-> **Context:** §7.5 of the implementation guide (`docs/next/portal-plugin-factory-implementation-guide.md`)
+> **Context:** [Phase 6 in the implementation guide](portal-plugin-factory-implementation-guide.md#phase-6-content-extraction-and-picker-contracts)
 
 ---
 
