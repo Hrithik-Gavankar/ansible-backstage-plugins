@@ -70,7 +70,9 @@ jobs:
           cache-prefix: ${{ github.ref_name }}-${{ runner.os }}-${{ matrix.node-version }}
 
       - name: Check dependency version pins
-        run: bash scripts/check-dependency-pins.sh
+        run: |
+          node --test scripts/check-dependency-pins.test.mjs
+          bash scripts/check-dependency-pins.sh
 
       - name: Lint OpenAPI spec
         run: yarn openapi:lint

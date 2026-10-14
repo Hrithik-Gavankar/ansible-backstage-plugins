@@ -64,6 +64,11 @@ jobs:
         with:
           cache-prefix: ${{ runner.os }}-v${{ matrix.node-version }}
 
+      - name: Check dependency version pins
+        run: |
+          node --test scripts/check-dependency-pins.test.mjs
+          bash scripts/check-dependency-pins.sh
+
       - name: Run Lint
         run: yarn lint:all
 
