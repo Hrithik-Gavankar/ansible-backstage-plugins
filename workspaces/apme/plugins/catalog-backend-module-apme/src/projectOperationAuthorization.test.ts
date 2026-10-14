@@ -3,7 +3,6 @@ import { mockServices } from '@backstage/backend-test-utils';
 import type { CatalogClient } from '@backstage/catalog-client';
 import { AuthorizeResult } from '@backstage/plugin-permission-common';
 import type { IApmeService } from '@ansible/backstage-apme-common';
-import { PORTAL_ORGANIZATION_ANNOTATION } from '@ansible/portal-plugin-node';
 import { createProjectOperationAuthorizer } from './projectOperationAuthorization';
 import { ManualGitRepositoryProvider } from './providers/ManualGitRepositoryProvider';
 
@@ -137,17 +136,6 @@ describe('interactive APME project authorization', () => {
     );
   });
   it.each([
-    { ...entity, metadata: { ...entity.metadata, namespace: 'other' } },
-    {
-      ...entity,
-      metadata: {
-        ...entity.metadata,
-        annotations: {
-          ...entity.metadata.annotations,
-          [PORTAL_ORGANIZATION_ANNOTATION]: 'other',
-        },
-      },
-    },
     { ...entity, spec: { ...entity.spec, repository_default_branch: 'other' } },
     {
       ...entity,
@@ -168,27 +156,50 @@ describe('interactive APME project authorization', () => {
       );
     },
   );
-  it('permits a default-namespace repository only with an explicit host mapping', async () => {
+  it('permits shared default-namespace repositories without an AAP owner or mapping', async () => {
     getEntities.mockResolvedValue({
       items: [
-        { ...entity, metadata: { ...entity.metadata, namespace: 'default' } },
+        {
+          ...entity,
+          metadata: {
+            ...entity.metadata,
+            namespace: 'default',
+            annotations: {
+              ...entity.metadata.annotations,
+              'ansible.io/portal-organization': 'legacy-other',
+            },
+          },
+        },
       ],
     });
-    await expect(authorize()('project-1', credentials, true)).rejects.toThrow(
-      'not accessible',
+    await expect(
+      authorize()('project-1', credentials, true),
+    ).resolves.toBeUndefined();
+    expect(getEntities.mock.calls[0][0].filter[0]).not.toHaveProperty(
+      'metadata.namespace',
     );
-    const config = new ConfigReader({
-      portal: {
-        organization: {
-          catalogMappings: [
-            { organizationId: 'engineering', namespaces: ['default'] },
-          ],
-        },
-      },
+  });
+  it('accepts any granted membership for a shared repository while preserving resource checks', async () => {
+    organizations.resolve.mockResolvedValue(undefined);
+    const resolveAll = jest.fn().mockResolvedValue(['engineering', 'finance']);
+    const check = jest
+      .fn()
+      .mockResolvedValue({ allowed: true, organizationId: 'finance' });
+    const authorizeMulti = createProjectOperationAuthorizer({
+      userInfo,
+      organizations: { ...organizations, resolveAll },
+      entitlements: { check },
+      permissions,
+      auth: mockServices.auth(),
+      catalogClient: { getEntities } as unknown as CatalogClient,
+      apmeService: { getProject } as unknown as IApmeService,
+      rootConfig: new ConfigReader({}),
+      manualProvider: new ManualGitRepositoryProvider(),
     });
     await expect(
-      authorize(config)('project-1', credentials, true),
+      authorizeMulti('project-1', credentials, true),
     ).resolves.toBeUndefined();
+    expect(permissions.authorize).toHaveBeenCalledTimes(2);
   });
   it('does not authorize a catalog subject after manual tracking was stopped', async () => {
     const manual = {

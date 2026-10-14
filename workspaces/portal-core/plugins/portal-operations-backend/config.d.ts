@@ -4,14 +4,6 @@ export interface Config {
     organization?: {
       /** @visibility backend */
       id?: string;
-      /**
-       * Explicit legacy catalog partition mapping; first namespace is used for creation.
-       * @visibility backend
-       */
-      catalogMappings?: Array<{
-        organizationId: string;
-        namespaces: string[];
-      }>;
     };
     entitlements?: {
       /** Host availability policy. An absent grant denies; RBAC must also allow. */

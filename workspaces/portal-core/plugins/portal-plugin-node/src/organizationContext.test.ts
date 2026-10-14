@@ -1,11 +1,5 @@
-import { ConfigReader } from '@backstage/config';
 import { mockServices } from '@backstage/backend-test-utils';
-import {
-  assertEntityOrganization,
-  organizationCatalogNamespaces,
-  PORTAL_ORGANIZATION_ANNOTATION,
-  resolvePortalContext,
-} from './organizationContext';
+import { resolvePortalContext } from './organizationContext';
 
 describe('trusted Portal organization context', () => {
   const credentials = {
@@ -38,7 +32,7 @@ describe('trusted Portal organization context', () => {
       organizations.resolve.mockResolvedValue(value);
       await expect(
         resolvePortalContext({ credentials, userInfo, organizations }),
-      ).rejects.toThrow('missing or ambiguous');
+      ).rejects.toThrow(/organization/i);
     },
   );
   it('denies resolver failure', async () => {
@@ -66,77 +60,30 @@ describe('trusted Portal organization context', () => {
   });
 });
 
-describe('host-owned catalog partition policy', () => {
-  const entity = { metadata: { namespace: 'default' } };
-  const config = (
-    catalogMappings: Array<{ organizationId: string; namespaces?: string[] }>,
-  ) => new ConfigReader({ portal: { organization: { catalogMappings } } });
-  it('preserves default deployments without configuration changes', () => {
-    expect(
-      organizationCatalogNamespaces(new ConfigReader({}), 'default'),
-    ).toEqual(['default']);
-    expect(() =>
-      assertEntityOrganization(entity, 'default', new ConfigReader({})),
-    ).not.toThrow();
-  });
-  it('does not assume every default entity belongs to a non-default organization', () => {
-    expect(() =>
-      assertEntityOrganization(entity, 'engineering', new ConfigReader({})),
-    ).toThrow('outside');
-  });
-  it('permits an explicit compatibility mapping without changing entity refs', () => {
-    const policy = config([
-      { organizationId: 'engineering', namespaces: ['default', 'engineering'] },
-    ]);
-    expect(organizationCatalogNamespaces(policy, 'engineering')).toEqual([
-      'default',
-      'engineering',
-    ]);
-    expect(() =>
-      assertEntityOrganization(entity, 'engineering', policy),
-    ).not.toThrow();
-  });
-  it('rejects an explicitly different organization even within a mapped namespace', () => {
-    const policy = config([
-      { organizationId: 'engineering', namespaces: ['default'] },
-    ]);
-    expect(() =>
-      assertEntityOrganization(
-        {
-          metadata: {
-            namespace: 'default',
-            annotations: { [PORTAL_ORGANIZATION_ANNOTATION]: 'sales' },
-          },
-        },
-        'engineering',
-        policy,
-      ),
-    ).toThrow('outside');
-  });
-  it.each([
-    [{ organizationId: 'engineering', namespaces: [] }],
-    [{ organizationId: 'engineering', namespaces: ['*'] }],
-    [{ organizationId: 'engineering', namespaces: ['default', 'default'] }],
-    [
-      { organizationId: 'engineering', namespaces: ['default'] },
-      { organizationId: 'sales', namespaces: ['default'] },
-    ],
-    [
-      { organizationId: 'engineering', namespaces: ['default'] },
-      { organizationId: 'engineering', namespaces: ['engineering'] },
-    ],
-    [{ organizationId: 'engineering' }],
-  ])('rejects invalid or overlapping namespace mappings %j', (...mappings) => {
-    expect(() =>
-      organizationCatalogNamespaces(config(mappings), 'engineering'),
-    ).toThrow('Invalid or ambiguous');
-  });
-  it('cannot implicitly claim a namespace already assigned to another organization', () => {
-    expect(() =>
-      organizationCatalogNamespaces(
-        config([{ organizationId: 'engineering', namespaces: ['default'] }]),
-        'default',
-      ),
-    ).toThrow('ambiguous');
+describe('multi-organization Portal context', () => {
+  it('preserves memberships without inventing an active organization', async () => {
+    const credentials = {
+      $$type: '@backstage/BackstageCredentials' as const,
+      principal: { type: 'user', userEntityRef: 'user:default/aap-user-42' },
+    };
+    const userInfo = mockServices.userInfo.mock();
+    userInfo.getUserInfo.mockResolvedValue({
+      userEntityRef: 'user:default/aap-user-42',
+      ownershipEntityRefs: [],
+    });
+    const organizations = {
+      resolve: jest.fn(),
+      resolveAll: jest
+        .fn()
+        .mockResolvedValue(['finance', 'engineering', 'finance']),
+    };
+    await expect(
+      resolvePortalContext({ credentials, userInfo, organizations }),
+    ).resolves.toEqual({
+      userId: 'aap-user-42',
+      userEntityRef: 'user:default/aap-user-42',
+      organizationIds: ['engineering', 'finance'],
+    });
+    expect(organizations.resolve).not.toHaveBeenCalled();
   });
 });

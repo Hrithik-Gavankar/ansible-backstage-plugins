@@ -122,7 +122,7 @@ describe('APME scan operation', () => {
     expect(getEntityByRef).not.toHaveBeenCalled();
     expect(applyMutation).not.toHaveBeenCalled();
   });
-  it('rejects crawler-owned and cross-organization deregistration', async () => {
+  it('rejects crawler-owned registration and allows authorized manual entries in any namespace', async () => {
     await expect(
       registry().execute(
         'apme.repository.deregister',
@@ -133,7 +133,7 @@ describe('APME scan operation', () => {
     ).rejects.toThrow('manually');
     getEntityByRef.mockResolvedValue({
       ...manualEntity,
-      metadata: { ...manualEntity.metadata, namespace: 'other' },
+      metadata: { ...manualEntity.metadata, namespace: 'default' },
     });
     await expect(
       registry().execute(
@@ -142,8 +142,8 @@ describe('APME scan operation', () => {
         context,
         permissions,
       ),
-    ).rejects.toThrow('organization');
-    expect(applyMutation).not.toHaveBeenCalled();
+    ).resolves.toEqual({ entityRef: subject.entityRef, subjectRemoved: true });
+    expect(applyMutation).toHaveBeenCalled();
   });
   it('rejects scan requests against stale catalog data after removal', async () => {
     getEntityByRef.mockResolvedValue(manualEntity);
@@ -237,20 +237,20 @@ describe('APME scan operation', () => {
     expect(getEntityByRef).not.toHaveBeenCalled();
     expect(triggerScan).not.toHaveBeenCalled();
   });
-  it('rejects a repository outside the organization', async () => {
+  it('scans a shared default-namespace repository without assigning an AAP owner', async () => {
     getEntityByRef.mockResolvedValue({
       ...entity,
-      metadata: { ...entity.metadata, namespace: 'other' },
+      metadata: { ...entity.metadata, namespace: 'default' },
     });
     await expect(
       registry().execute(
         'apme.quality.scan',
-        { subject },
+        { subject: { entityRef: 'component:default/repo' } },
         context,
         permissions,
       ),
-    ).rejects.toThrow('organization');
-    expect(triggerScan).not.toHaveBeenCalled();
+    ).resolves.toEqual({ scanId: 'scan-1', status: 'pending' });
+    expect(triggerScan).toHaveBeenCalledTimes(1);
   });
   it('rejects unsupported entities and missing APME projects', async () => {
     getEntityByRef.mockResolvedValue({

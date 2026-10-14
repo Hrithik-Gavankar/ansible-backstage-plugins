@@ -22,13 +22,9 @@ export type {
 
 // ── Identity middleware ────────────────────────────────────────────────────────
 export { createIdentityMiddleware, parseEntityRef } from './middleware';
+export { resolveOrganizationMemberships } from './entitlements';
 export type { IdentityMiddlewareOptions } from './middleware';
-export {
-  resolvePortalContext,
-  organizationCatalogNamespaces,
-  assertEntityOrganization,
-  PORTAL_ORGANIZATION_ANNOTATION,
-} from './organizationContext';
+export { resolvePortalContext } from './organizationContext';
 
 // ── Health registry ────────────────────────────────────────────────────────────
 export {

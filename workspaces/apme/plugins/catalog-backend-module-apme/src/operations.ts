@@ -7,10 +7,7 @@ import type {
 import { catalogEntityReadPermission } from '@backstage/plugin-catalog-common/alpha';
 import { AuthorizeResult } from '@backstage/plugin-permission-common';
 import { InputError, NotAllowedError, NotFoundError } from '@backstage/errors';
-import {
-  assertEntityOrganization,
-  type PortalOperations,
-} from '@ansible/portal-plugin-node';
+import type { PortalOperations } from '@ansible/portal-plugin-node';
 import type { ManualGitRepositoryProvider } from './providers/ManualGitRepositoryProvider';
 import { apmeRepositoryDeregisterOperation } from '@ansible/backstage-apme-common/operations';
 import {
@@ -62,11 +59,6 @@ export function registerApmeOperations(options: {
       ) {
         throw new InputError('Quality scan requires a Git repository');
       }
-      assertEntityOrganization(
-        entity,
-        context.organizationId,
-        options.rootConfig,
-      );
       const repoUrl = normalizeRepoUrlFromEntity(entity);
       if (options.manualProvider?.isTrackingStopped(entity)) {
         throw new NotFoundError('Repository is no longer tracked by Portal');
@@ -116,11 +108,6 @@ export function registerApmeOperations(options: {
           { token },
         );
         if (!entity) throw new NotFoundError('Repository not found');
-        assertEntityOrganization(
-          entity,
-          context.organizationId,
-          options.rootConfig,
-        );
         if (
           entity.kind.toLowerCase() !== 'component' ||
           entity.spec?.type !== 'git-repository' ||

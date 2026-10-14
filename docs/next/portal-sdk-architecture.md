@@ -116,10 +116,10 @@ sequenceDiagram
   User->>UI: Select Scan
   UI->>Client: execute(operationId, subject, input)
   Client->>Host: Authenticated request
-  Host->>Host: Resolve caller and trusted active organization
+  Host->>Host: Resolve caller and trusted organization memberships
   Host->>Host: Check operation permission
   Host->>Host: Validate input schema
-  Host->>Host: Enforce declared entitlements for that organization
+  Host->>Host: Enforce declared entitlements for the operation scope
   Host->>Handler: Execute registered handler with context
   Handler->>Handler: Resource checks and domain work
   Handler-->>Host: Result or job reference
@@ -133,7 +133,7 @@ the current subject's entity reference, and optional input. The manifest does
 not supply a handler URL. A descriptor alone does not install a handler: the
 backend registers it through `portalOperationsServiceRef`.
 
-The dispatcher independently resolves the trusted organization, rejects an
+The dispatcher independently resolves trusted memberships, rejects an
 inconsistent context, and checks operation permission, declared entitlements,
 and input/output schemas. The handler remains responsible for resource access
 and domain checks.
@@ -141,24 +141,44 @@ An accepted scan request is not a completed scan; job progress and findings
 belong to the contributor.
 
 REST dispatch, identity middleware, repository registration adapters, and APME
-interactive workflows use the same injected active-organization resolver.
+interactive workflows use the same injected organization resolver.
 Identity namespace is not organization identity. APME scan operations declare
 `requiredEntitlements: ['apme.scanning']`; workflow submission, approval, and
 state/event routes also enforce entitlement and repository access before
 forwarding traffic or resolving SCM credentials. State/event reads do not
 require the scan mutation permission.
 
-Catalog partition policy is explicit: `portal.organization.catalogMappings`
-binds organization IDs to allowed namespaces. The first namespace is used for
-new manual registrations; additional namespaces permit legacy records without
-renaming entity references. Overlapping mappings and conflicting
-`ansible.io/portal-organization` annotations deny access. Without a mapping,
-only the namespace matching the resolved organization is accepted.
+The AAP adapter verifies the authenticated AAP identity, resolves current direct
+organization and team memberships, and intersects them with configured Portal
+organizations. Entitlement grants control availability, not membership. For a
+shared repository operation, any granted membership enables the capability;
+operation and resource permissions must still pass. For example, a user in
+Engineering and Finance can scan a shared repository when Engineering grants
+scanning, even if Finance does not.
 
-> **Important:** Configuration scope is not membership proof. Frontend filtering
-> does not authorize backend resources. Remaining legacy mutations, automatic
-> scanning policy, and membership-validated organization switching are separate
-> work; these checks do not introduce gateway tenancy or revoke running jobs.
+`PortalContext.organizationId` is present only when one organization is
+unambiguous; `organizationIds` carries multiple trusted memberships without
+selecting the first. Operation descriptors default to organization-specific
+scope and require one validated organization. Descriptors explicitly declaring
+`organizationScope: 'shared'`, including APME repository operations, can execute
+with multiple memberships. Shared access does not select a partition for
+organization-specific plugin data.
+
+Git repositories have no mandatory AAP organization owner. New manual entries
+use the `default` catalog namespace. The former `portal.organization.catalogMappings`
+policy and `ansible.io/portal-organization` ownership checks are removed; existing
+records and annotations are not rewritten. Catalog namespace and SCM owner are
+not substitutes for membership or resource authorization.
+
+The frontend `usePortalContext` hook reads authenticated host context from
+`GET /api/portal-operations/context`; it does not derive organization from the
+user namespace or fall back to `default`. The backend independently rechecks
+authorization rather than trusting browser context.
+
+> **Important:** Frontend filtering does not authorize backend resources.
+> Remaining legacy mutations, automatic scanning policy, and organization
+> selection are separate work; these checks do not introduce gateway tenancy
+> or revoke running jobs.
 
 ## Backend health reporting
 

@@ -80,10 +80,16 @@ settings contribution routing/persistence is implemented.
 
 ## Preview limitations
 
-Operation transports and APME interactive workflows resolve organization from
-the injected host service, not identity namespace. Declared operation entitlements
-are enforced server-side. Explicit catalog namespace mappings preserve legacy
-references; configuration grants do not prove membership or replace RBAC.
+Operation transports and APME interactive workflows resolve trusted memberships
+from the injected host service, not identity namespace. The AAP adapter validates
+direct/team memberships against configured organizations. Any granted membership
+enables a shared capability, subject to RBAC. New manual Git repository entries
+use `default`, with no AAP ownership annotation or catalog namespace mapping;
+existing records are not rewritten. Declared operation entitlements are enforced
+server-side; configuration grants do not prove membership or replace RBAC.
+Organization-specific handlers still need one validated organization rather
+than an arbitrary choice from multiple memberships. Frontend context comes from
+authenticated `GET /api/portal-operations/context`, not the user namespace.
 Remaining legacy mutations, automatic scan policy, and organization switching
 are separate work.
 

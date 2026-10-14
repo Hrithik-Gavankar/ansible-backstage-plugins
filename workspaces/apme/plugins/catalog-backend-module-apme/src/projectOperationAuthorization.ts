@@ -11,8 +11,6 @@ import { NotAllowedError } from '@backstage/errors';
 import { AuthorizeResult } from '@backstage/plugin-permission-common';
 import { catalogEntityReadPermission } from '@backstage/plugin-catalog-common/alpha';
 import {
-  assertEntityOrganization,
-  organizationCatalogNamespaces,
   resolvePortalContext,
   type ActiveOrganizationResolver,
   type PortalEntitlements,
@@ -56,7 +54,12 @@ export function createProjectOperationAuthorizer(options: {
     );
     if (
       !entitlement.allowed ||
-      entitlement.organizationId !== context.organizationId
+      ![
+        ...(entitlement.organizationIds ?? []),
+        ...(entitlement.organizationId ? [entitlement.organizationId] : []),
+      ].some(id =>
+        (context.organizationIds ?? [context.organizationId]).includes(id),
+      )
     ) {
       throw new NotAllowedError('APME scanning entitlement denied');
     }
@@ -69,10 +72,6 @@ export function createProjectOperationAuthorizer(options: {
         throw new NotAllowedError('APME scan permission denied');
       }
     }
-    const namespaces = organizationCatalogNamespaces(
-      options.rootConfig,
-      context.organizationId,
-    );
     const project = await options.apmeService.getProject(projectId);
     const projectUrl = normalizeRepoUrl(project.repo_url);
     if (!projectUrl || !project.branch)
@@ -88,13 +87,11 @@ export function createProjectOperationAuthorizer(options: {
           {
             kind: 'Component',
             'spec.type': 'git-repository',
-            'metadata.namespace': [...namespaces],
             'metadata.annotations.backstage.io/view-url': variants,
           },
           {
             kind: 'Component',
             'spec.type': 'git-repository',
-            'metadata.namespace': [...namespaces],
             'metadata.annotations.backstage.io/source-location': variants.map(
               url => `url:${url}`,
             ),
@@ -112,15 +109,6 @@ export function createProjectOperationAuthorizer(options: {
         options.manualProvider.isTrackingStopped(entity)
       )
         continue;
-      try {
-        assertEntityOrganization(
-          entity,
-          context.organizationId,
-          options.rootConfig,
-        );
-      } catch {
-        continue;
-      }
       const [decision] = await options.permissions.authorize(
         [
           {
@@ -133,7 +121,7 @@ export function createProjectOperationAuthorizer(options: {
       if (decision?.result === AuthorizeResult.ALLOW) return;
     }
     throw new NotAllowedError(
-      'Project repository is not accessible in the active organization',
+      'Project repository is not accessible to the current user',
     );
   };
 }

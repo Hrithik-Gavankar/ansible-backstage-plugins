@@ -8,11 +8,7 @@ import {
   apmeRepositoryRegisterOperation,
   type RegisterRepositoryInput,
 } from '@ansible/backstage-apme-common/operations';
-import {
-  organizationCatalogNamespaces,
-  PORTAL_ORGANIZATION_ANNOTATION,
-  type PortalOperations,
-} from '@ansible/portal-plugin-node';
+import type { PortalOperations } from '@ansible/portal-plugin-node';
 import type { ManualGitRepositoryProvider } from '../providers/ManualGitRepositoryProvider';
 
 export function registerRepositoryOperation(options: {
@@ -34,10 +30,6 @@ export function registerRepositoryOperation(options: {
         );
       }
       const values = input as unknown as RegisterRepositoryInput;
-      const namespaces = organizationCatalogNamespaces(
-        options.rootConfig,
-        context.organizationId,
-      );
       const {
         sourceControlProvider: scm,
         repositoryOwner: owner,
@@ -91,12 +83,11 @@ export function registerRepositoryOperation(options: {
         kind: 'Component',
         metadata: {
           name: entityName,
-          namespace: namespaces[0],
+          namespace: 'default',
           title: name,
           description: values.description || `Git repository: ${owner}/${name}`,
           tags: ['git-repository', scm, 'manually-registered'],
           annotations: {
-            [PORTAL_ORGANIZATION_ANNOTATION]: context.organizationId,
             'backstage.io/source-location': `url:${url.href}`,
             'backstage.io/view-url': url.href,
             'ansible.io/scm-provider': scm,
@@ -123,7 +114,6 @@ export function registerRepositoryOperation(options: {
         {
           filter: {
             kind: 'Component',
-            'metadata.namespace': [...namespaces],
             'metadata.annotations.ansible.io/scm-provider': scm,
             'metadata.annotations.ansible.io/scm-organization': owner,
             'metadata.annotations.ansible.io/scm-repository': name,

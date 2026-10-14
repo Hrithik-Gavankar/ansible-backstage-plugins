@@ -20,13 +20,15 @@
 export interface PortalContext {
   /** Full Backstage entity reference (e.g. `user:default/johndoe`). */
   userEntityRef: string;
-  /** Username extracted from the entity ref (e.g. `johndoe`). */
+  /** Catalog user name; may be ID-based and is not necessarily the AAP login. */
   userId: string;
   /**
    * Trusted active organization resolved by the host.
    * Use this as the partition key on every database query.
    */
-  organizationId: string;
+  organizationId?: string;
+  /** Trusted memberships when there is no single active organization. */
+  organizationIds?: readonly string[];
 }
 
 // ── Health ────────────────────────────────────────────────────────────────────
@@ -66,7 +68,9 @@ export interface AuditEvent {
   /** User who invoked the operation (from `req.portalContext.userId`). */
   userId: string;
   /** Organization for this invocation (from `req.portalContext.organizationId`). */
-  organizationId: string;
+  organizationId?: string;
+  /** Membership context; not ownership of the operation's resource. */
+  organizationIds?: readonly string[];
   /** Sanitised input payload (no secrets). */
   input?: Record<string, unknown>;
   /** Whether the operation succeeded or failed. */

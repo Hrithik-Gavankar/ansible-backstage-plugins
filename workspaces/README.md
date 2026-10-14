@@ -103,7 +103,11 @@ through platform APIs rather than directly contacting AAP.
   entitlements. APME interactive workflows also authorize repository access.
   Remaining legacy mutations and automatic scan policy still need migration;
   frontend gates are not backend authorization.
-- Server-configured organization resolution is not a membership-validated org switcher.
+- The AAP resolver validates current memberships against configured organizations.
+  Any granted membership enables a shared capability, subject to RBAC. Shared
+  Git repositories have no mandatory AAP owner; new manual entries use `default`.
+  Multiple memberships do not select an active organization for tenant-specific
+  handlers. No organization selector is provided.
 - Query/write contracts and content extraction remain separate work.
 - Packed acceptance was bounded to `next-2.1`; published preview compatibility
   and release delivery are not complete.

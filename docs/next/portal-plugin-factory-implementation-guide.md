@@ -24,7 +24,7 @@ lockfile:
 
 - `portal-core/packages/app` and `portal-core/packages/backend`: development harnesses.
 - `portal-core/plugins`: shared Portal contracts, host, SDK, operations, and health.
-- `self-service/plugins/self-service`: `@ansible/portal-scaffolder`, including
+- `self-service/plugins/portal-scaffolder`: `@ansible/portal-scaffolder`, including
   templates, tasks, and the content pages awaiting extraction.
 - `aap/plugins`: AAP integration clients, authentication, catalog providers,
   user provisioning, and scaffolder actions.
@@ -108,12 +108,18 @@ The current native implementation includes:
 - Catalog-removal reconciliation before redirect/refresh, without resubmitting
   an accepted removal operation.
 - APME-owned summary refresh while background operations remain active.
-- Server-configured active organization and entitlement grants. This is a
-  single-active-organization resolver, not an authenticated organization switcher.
+- Trusted AAP direct/team memberships intersected with configured organizations,
+  and server-side entitlement grants. Any granted membership enables a shared
+  capability, subject to RBAC; multiple memberships do not select an active
+  organization for organization-specific state.
 - Consistent organization context across operation and registration transports,
   central enforcement of declared operation entitlements, and authorized APME
-  interactive workflow forwarding. Explicit catalog namespace mappings preserve
-  legacy repository references without equating identity namespace with organization.
+  interactive workflow forwarding. Git repositories remain shared resources;
+  new manual entries use `default` without AAP ownership annotations or catalog
+  namespace mappings. Existing records are not rewritten.
+- Flag-controlled stable AAP user/group/template identities, aligned across
+  authentication, catalog sync, and the extracted user provisioner. The frontend
+  SDK reads trusted membership context from the backend rather than user namespace.
 
 The legacy app is an explicit `?portalFrontend=legacy` fallback. Do not install
 its side-effect registration entry point alongside native APME declarations.

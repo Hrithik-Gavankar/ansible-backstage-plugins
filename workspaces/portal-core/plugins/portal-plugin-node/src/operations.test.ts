@@ -143,7 +143,7 @@ describe('PortalOperations', () => {
       organizations.resolve.mockResolvedValue(organization);
       await expect(
         registry.execute('test.scan', request, context, permissions),
-      ).rejects.toThrow('organization context');
+      ).rejects.toThrow(/organization/i);
       expect(handler).not.toHaveBeenCalled();
       expect(permissions.authorize).not.toHaveBeenCalled();
     },
@@ -283,6 +283,106 @@ describe('PortalOperations', () => {
     } finally {
       await backend.stop();
     }
+  });
+
+  it.each([
+    [['engineering'], ['engineering'], true],
+    [['finance'], ['finance'], true],
+    [['engineering', 'finance'], ['finance'], true],
+    [['engineering', 'finance'], ['*'], true],
+    [['finance'], ['engineering'], false],
+  ] as const)(
+    'checks shared-resource grants for memberships %j and policy %j',
+    async (memberships, grants, allowed) => {
+      const resolver = {
+        resolve: async () =>
+          memberships.length === 1 ? memberships[0] : undefined,
+        resolveAll: async () => memberships,
+      };
+      const policy = new PortalEntitlements(
+        new ConfigReader({
+          portal: {
+            entitlements: {
+              grants: [{ id: 'test.scanning', organizations: [...grants] }],
+            },
+          },
+        }),
+        resolver,
+      );
+      policy.register('test', [
+        {
+          id: 'test.scanning',
+          scope: 'organization',
+          permissionName: 'test.scanning.use',
+          displayName: 'Scanning',
+          description: 'Shared content scanning',
+        },
+      ]);
+      const operations = new PortalOperations(logger, resolver, policy);
+      operations.register({
+        pluginId: 'test',
+        descriptor: {
+          ...descriptor,
+          organizationScope: 'shared',
+          requiredEntitlements: ['test.scanning'],
+        },
+        handler,
+      });
+      const multiContext = {
+        ...context,
+        organizationId: memberships.length === 1 ? memberships[0] : undefined,
+        organizationIds: [...memberships],
+      };
+      const [result] = await Promise.allSettled([
+        operations.execute(
+          'test.scan',
+          { subject: { entityRef: 'component:default/shared-repo' } },
+          multiContext,
+          permissions,
+        ),
+      ]);
+      expect(result.status).toBe(allowed ? 'fulfilled' : 'rejected');
+      expect(handler).toHaveBeenCalledTimes(allowed ? 1 : 0);
+    },
+  );
+
+  it('does not invent a tenant for an organization-scoped handler with multiple memberships', async () => {
+    const resolver = {
+      resolve: async () => undefined,
+      resolveAll: async () => ['engineering', 'finance'],
+    };
+    const operations = new PortalOperations(logger, resolver, entitlements);
+    operations.register({ pluginId: 'test', descriptor, handler });
+    await expect(
+      operations.execute(
+        'test.scan',
+        request,
+        {
+          ...context,
+          organizationId: undefined,
+          organizationIds: ['engineering', 'finance'],
+        },
+        permissions,
+      ),
+    ).rejects.toThrow('organization context');
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it('accepts an explicit global entitlement without treating it as an organization grant', async () => {
+    entitlements.check.mockResolvedValue({ allowed: true, scope: 'global' });
+    registry.register({
+      pluginId: 'test',
+      descriptor: {
+        ...descriptor,
+        id: 'test.global',
+        requiredEntitlements: ['test.global-use'],
+      },
+      handler,
+    });
+    await expect(
+      registry.execute('test.global', request, context, permissions),
+    ).resolves.toEqual({ jobId: 'scan-1' });
+    expect(handler).toHaveBeenCalledWith(request, context);
   });
 
   it.each([false, true])(

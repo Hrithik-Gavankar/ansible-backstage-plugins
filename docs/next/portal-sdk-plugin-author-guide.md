@@ -73,7 +73,7 @@ requires root workspace/CI registration rather than only creating a directory.
 | `@ansible/portal-plugin-sdk`                                                                               | Contributor frontend      | Shared UI, tokens, notifications, caching and utilities             |
 | `portalOperationsServiceRef` from `@ansible/portal-plugin-node`                                            | Contributor backend       | Register and execute operation handlers                             |
 | `portalHealthServiceRef` from `@ansible/portal-plugin-node`                                                | Contributor backend       | Report health to the host registry                                  |
-| `portalActiveOrganizationServiceRef` and `portalEntitlementsServiceRef` from `@ansible/portal-plugin-node` | Backend integration       | Resolve deployment organization and entitlement decisions           |
+| `portalActiveOrganizationServiceRef` and `portalEntitlementsServiceRef` from `@ansible/portal-plugin-node` | Backend integration       | Resolve trusted organization memberships and entitlement decisions  |
 | `@ansible/portal-extension-host/alpha`                                                                     | Host pages/composition    | Install provider and native rendering adapters                      |
 
 The host owns `portalContributionsApiRef`, validation, filtering and rendering.
@@ -256,9 +256,46 @@ and automatic background scans still need their own policy migration.
 Use `resolvePortalContext({ credentials, userInfo, organizations })` when
 adapting another authenticated transport. Inject
 `portalActiveOrganizationServiceRef`; do not infer organization from the user
-namespace, SCM owner, submitted metadata, or a request header. Resource handlers
-must still check catalog read permission and organization scope, for example
-with `assertEntityOrganization(entity, context.organizationId, rootConfig)`.
+namespace, SCM owner, submitted metadata, or a request header. The AAP adapter
+verifies current direct/team memberships against configured organizations.
+Resource handlers must still check catalog read permission, supported content
+type, and domain-specific access.
+
+Choose the backend operation scope explicitly:
+
+- Omit `organizationScope`, or use `'organization'`, for organization-specific
+  state. The dispatcher requires a single validated `organizationId`; multiple
+  memberships are not an instruction to select the first. Scope persistence
+  queries to that validated organization.
+- Use `organizationScope: 'shared'` for operations on shared resources such as
+  Git repositories. Any trusted membership with the required entitlement enables
+  availability, but operation and resource RBAC still apply. The repository does
+  not acquire an AAP organization owner.
+
+For example, an operation descriptor for shared repository assessment includes:
+
+```ts
+import type { OperationDescriptor } from '@ansible/portal-extension-common';
+import { createPermission } from '@backstage/plugin-permission-common';
+
+export const startAssessment: OperationDescriptor = {
+  id: 'quality-insights.assessment.start',
+  version: '1.0.0',
+  organizationScope: 'shared',
+  requiredEntitlements: ['quality-insights.assessment'],
+  permission: createPermission({
+    name: 'quality-insights.assessment.start',
+    attributes: { action: 'create' },
+  }),
+  exposure: { rest: true },
+  inputSchema: { type: 'object', additionalProperties: false },
+};
+```
+
+Backend context supplies `organizationId` for a single membership or
+`organizationIds` for multiple memberships. There is no organization selector
+in this SDK flow. For display, `usePortalContext` reads authenticated
+`GET /api/portal-operations/context`; its result is not backend authority.
 
 ## Configuration and packaging responsibilities
 
@@ -270,32 +307,51 @@ reader across all capability artifacts. An absent enablement gate should disable
 the capability. The implementation still has legacy/backend configuration paths requiring
 conformance work; do not assume a native gate disables every backend route.
 
-An expanded example for a capability that explicitly declares
-`quality-insights.assessment` as an organization-scoped entitlement is:
+For an AAP deployment, a minimal entitlement policy is:
+
+```yaml
+portal:
+  entitlements:
+    grants:
+      - id: quality-insights.assessment
+        organizations: [engineering]
+```
+
+This assumes Engineering is configured in the existing AAP provider and the
+capability declares the matching entitlement. An expanded multi-organization
+example is:
 
 ```yaml
 ansible:
   quality-insights:
     enabled: true
+catalog:
+  providers:
+    rhaap:
+      development:
+        orgs: [Engineering, Finance]
+        multiOrgEnabled: true
 portal:
-  organization:
-    id: default
   entitlements:
     grants:
       - id: quality-insights.assessment
-        organizations: [default]
+        organizations: [engineering, finance]
 ```
 
 This expanded example is not required by the minimal tab above. It requires a
 matching manifest entitlement definition and descriptor
 `requiredEntitlements: ['quality-insights.assessment']`. Grants choose availability
 for an organization; they are not user membership proof or replacements for RBAC.
+Use the AAP adapter's canonical lowercase organization names in grants.
+`organizations: ['*']` grants availability across the caller's configured
+memberships, not membership in every AAP organization. Deployment administrators
+configure grants; plugin authors declare entitlement requirements.
 
-If the resolver supplies a non-default organization but existing repositories
-remain in the `default` namespace, configure an explicit compatibility mapping
-as described in the [operations backend reference](../plugins/portal-operations-backend.md).
-The mapping does not rename entities or grant resource permissions. Never map
-one catalog namespace to multiple organizations.
+Shared Git repositories remain in the catalog independently of these grants.
+No catalog namespace mapping or `ansible.io/portal-organization` annotation is
+required. Existing records are not renamed. See the
+[operations backend reference](../plugins/portal-operations-backend.md) for the
+generic single-organization fallback and identity compatibility details.
 
 Use the repository's `export-dynamic` scripts and actual `rhdh-cli` embedding
 options, rather than the historical Janus/Scalprum examples. Re-export consumers
@@ -315,7 +371,7 @@ registry singleton or publish mount-point YAML.
 - [ ] New mutations use registered operations with permission and schema checks.
 - [ ] Backend handlers authorize the selected resource independently of the UI.
 - [ ] Backend operation entitlements are declared and registered, with denied-path tests.
-- [ ] Organization scope uses the injected resolver and explicit catalog partition policy.
+- [ ] Operation scope distinguishes shared resources from organization-specific state and uses trusted memberships.
 - [ ] Long-running operations distinguish acceptance, progress and completion.
 - [ ] Disabled configuration and missing artifacts remove the intended capability.
 - [ ] Other optional plugin implementations and private RHDH APIs are not dependencies.

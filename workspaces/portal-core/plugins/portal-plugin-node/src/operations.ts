@@ -20,6 +20,7 @@ import {
   portalEntitlementsServiceRef,
   type ActiveOrganizationResolver,
   type PortalEntitlements,
+  resolveOrganizationMemberships,
 } from './entitlements';
 
 export interface OperationContext extends PortalContext {
@@ -55,6 +56,12 @@ export class PortalOperations {
 
   register(registration: OperationRegistration): void {
     const { descriptor, pluginId } = registration;
+    if (
+      descriptor.organizationScope !== undefined &&
+      !['organization', 'shared'].includes(descriptor.organizationScope)
+    ) {
+      throw new InputError('Invalid operation organization scope');
+    }
     if (!descriptor.id.startsWith(`${pluginId}.`) || !descriptor.permission) {
       throw new InputError(
         'An operation must have an owner-prefixed ID and a permission',
@@ -104,7 +111,8 @@ export class PortalOperations {
     const event = {
       operationId,
       userId: context.userId,
-      organizationId: 'unresolved',
+      organizationId: undefined as string | undefined,
+      organizationIds: [] as readonly string[],
       input: { entityRef: request.subject.entityRef },
     };
     try {
@@ -117,16 +125,30 @@ export class PortalOperations {
       ) {
         throw new NotAllowedError('Operation requires an authenticated user');
       }
-      let organizationId: string | undefined;
+      let memberships: readonly string[];
       try {
-        organizationId = await this.organizations.resolve(context.credentials);
+        memberships = await resolveOrganizationMemberships(
+          this.organizations,
+          context.credentials,
+        );
       } catch {
         throw new NotAllowedError('Active organization could not be resolved');
       }
-      if (organizationId?.trim()) event.organizationId = organizationId;
+      const organizationId =
+        context.organizationId ??
+        (memberships.length === 1 ? memberships[0] : undefined);
+      event.organizationIds = memberships;
+      if (organizationId && memberships.includes(organizationId))
+        event.organizationId = organizationId;
       if (
-        !organizationId?.trim() ||
-        organizationId !== context.organizationId
+        !memberships.length ||
+        (organizationId !== undefined &&
+          !memberships.includes(organizationId)) ||
+        (registration.descriptor.organizationScope !== 'shared' &&
+          !organizationId) ||
+        (context.organizationIds !== undefined &&
+          [...context.organizationIds].sort().join('\0') !==
+            memberships.join('\0'))
       ) {
         throw new NotAllowedError(
           'Operation organization context is missing, ambiguous or inconsistent',
@@ -150,14 +172,28 @@ export class PortalOperations {
           context.credentials,
           permissions,
         );
-        if (
-          !entitlementDecision.allowed ||
-          entitlementDecision.organizationId !== organizationId
-        ) {
+        const grantedOrganizations = [
+          ...(entitlementDecision.organizationIds ?? []),
+          ...(entitlementDecision.organizationId
+            ? [entitlementDecision.organizationId]
+            : []),
+        ];
+        const entitlementApplies =
+          entitlementDecision.scope === 'global' ||
+          grantedOrganizations.some(grantedOrganization =>
+            registration.descriptor.organizationScope === 'shared'
+              ? memberships.includes(grantedOrganization)
+              : grantedOrganization === organizationId,
+          );
+        if (!entitlementDecision.allowed || !entitlementApplies) {
           throw new NotAllowedError('Operation entitlement denied');
         }
       }
-      const result = await registration.handler(request, context);
+      const result = await registration.handler(request, {
+        ...context,
+        organizationId,
+        ...(memberships.length > 1 ? { organizationIds: memberships } : {}),
+      });
       if (entry.output && !entry.output(result)) {
         throw new Error('Operation output does not match its schema');
       }

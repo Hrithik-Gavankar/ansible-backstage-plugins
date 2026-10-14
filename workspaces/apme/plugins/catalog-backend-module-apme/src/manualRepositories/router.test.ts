@@ -109,16 +109,19 @@ describe('manual registration router', () => {
       createClient: async () => ({ repositoryExists }),
     }));
   });
-  it('derives scope and owner from identity and replaces untrusted provenance', async () => {
+  it('derives owner from identity while keeping shared catalog placement and trusted provenance', async () => {
     const response = await request(await app())
       .post('/apme/repositories')
       .send({ entity });
     expect(response.status).toBe(201);
     expect(response.body.entityRef).toBe(
-      'component:acme/acme-repo-github-manual',
+      'component:default/acme-repo-github-manual',
     );
     const registered = applyMutation.mock.calls[0][0].added[0].entity;
-    expect(registered.metadata.namespace).toBe('acme');
+    expect(registered.metadata.namespace).toBe('default');
+    expect(registered.metadata.annotations).not.toHaveProperty(
+      'ansible.io/portal-organization',
+    );
     expect(registered.spec.owner).toBe('user:acme/alice');
     expect(
       registered.metadata.annotations['backstage.io/managed-by-location'],
