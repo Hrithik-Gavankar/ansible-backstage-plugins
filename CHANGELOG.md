@@ -30,6 +30,8 @@ where versioned packages apply.
 
 ### Fixed
 
+- **Portal backend authorization** uses the shared active-organization resolver across operation and registration transports, enforces declared operation entitlements server-side, and authorizes APME interactive workflows before gateway forwarding or SCM credential resolution. Explicit catalog namespace mappings preserve legacy repository references.
+
 - **Workspace CI coverage** includes plugin source paths across all four workspaces and rejects empty filtered reports; Sonar source/test roots and generated-artifact exclusions now match the workspace layout.
 
 - **Portal NFS app** restores distinct self-service sidebar icons, native RBAC and Settings pages, and the source development app's global header and account/logout controls.
@@ -38,6 +40,8 @@ where versioned packages apply.
 - Various **Sonar** / quality findings in catalog survey generation and UI components.
 
 ### Upgrade notes
+
+1. **Backend SDK consumers:** inject `portalActiveOrganizationServiceRef` into identity middleware and use backend operation `requiredEntitlements` for server-side availability gates. APME scanning now requires a registered `apme.scanning` grant for the resolved organization as well as RBAC. Non-default organizations accessing legacy `default` repositories require an explicit `portal.organization.catalogMappings` entry; registration/removal do not require the scanning entitlement.
 
 1. **Experimental NFS callers:** replace links to the removed duplicate `/portal/*` UI with the corresponding `/self-service/*` pages. Removed routes do not silently redirect; `/` continues to open Templates. This does not complete content extraction.
 

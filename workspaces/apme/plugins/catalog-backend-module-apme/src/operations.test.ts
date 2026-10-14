@@ -1,4 +1,5 @@
 import { mockServices } from '@backstage/backend-test-utils';
+import { ConfigReader } from '@backstage/config';
 import type { CatalogClient } from '@backstage/catalog-client';
 import { AuthorizeResult } from '@backstage/plugin-permission-common';
 import type { IApmeService } from '@ansible/backstage-apme-common';
@@ -15,11 +16,17 @@ describe('APME scan operation', () => {
   const deleteProject = jest.fn();
   let manualProvider: ManualGitRepositoryProvider;
   const permissions = mockServices.permissions.mock();
+  const entitlements = { check: jest.fn() };
   const registry = () => {
-    const operations = new PortalOperations(mockServices.logger.mock());
+    const operations = new PortalOperations(
+      mockServices.logger.mock(),
+      { resolve: async () => 'acme' },
+      entitlements,
+    );
     registerApmeOperations({
       manualProvider,
       operations,
+      rootConfig: new ConfigReader({}),
       permissions,
       auth: mockServices.auth(),
       catalogClient: { getEntityByRef } as unknown as CatalogClient,
@@ -57,6 +64,10 @@ describe('APME scan operation', () => {
   };
   beforeEach(async () => {
     jest.clearAllMocks();
+    entitlements.check.mockResolvedValue({
+      allowed: true,
+      organizationId: 'acme',
+    });
     manualProvider = new ManualGitRepositoryProvider();
     await manualProvider.connect({
       applyMutation,
@@ -171,6 +182,34 @@ describe('APME scan operation', () => {
       enableAi: false,
       userIdentity: { userEntityRef: 'user:acme/alice' },
     });
+  });
+  it('denies scanning without a server-side entitlement before catalog or gateway access', async () => {
+    entitlements.check.mockResolvedValue({
+      allowed: false,
+      organizationId: 'acme',
+    });
+    await expect(
+      registry().execute(
+        'apme.quality.scan',
+        { subject },
+        context,
+        permissions,
+      ),
+    ).rejects.toThrow('entitlement denied');
+    expect(getEntityByRef).not.toHaveBeenCalled();
+    expect(triggerScan).not.toHaveBeenCalled();
+  });
+  it('does not require a scanning entitlement to remove a manual registration', async () => {
+    entitlements.check.mockResolvedValue({ allowed: false });
+    getEntityByRef.mockResolvedValue(manualEntity);
+    await registry().execute(
+      'apme.repository.deregister',
+      { subject },
+      context,
+      permissions,
+    );
+    expect(entitlements.check).not.toHaveBeenCalled();
+    expect(applyMutation).toHaveBeenCalled();
   });
   it('rejects caller-provided project IDs', async () => {
     await expect(

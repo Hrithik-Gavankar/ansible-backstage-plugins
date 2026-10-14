@@ -99,8 +99,10 @@ through platform APIs rather than directly contacting AAP.
 - Operations receive the selected subject, not a manifest-supplied handler URL.
 - Health reporting is backend-only in the deployed composition. A host health
   component exists but is not installed as a dashboard.
-- Backend tenant/entitlement consistency and remaining legacy mutations still
-  need hardening; do not treat frontend gates as backend authorization.
+- Registered operations enforce trusted organization context and declared
+  entitlements. APME interactive workflows also authorize repository access.
+  Remaining legacy mutations and automatic scan policy still need migration;
+  frontend gates are not backend authorization.
 - Server-configured organization resolution is not a membership-validated org switcher.
 - Query/write contracts and content extraction remain separate work.
 - Packed acceptance was bounded to `next-2.1`; published preview compatibility

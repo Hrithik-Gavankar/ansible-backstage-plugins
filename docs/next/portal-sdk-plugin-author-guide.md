@@ -220,6 +220,13 @@ it. Use an owner-prefixed ID such as `quality-insights.assessment.start`, an ope
 permission, input/output schemas, and appropriate exposure flags. The current
 dispatcher requires a permission and REST exposure for execution.
 
+Declare `requiredEntitlements` on the backend operation descriptor when the
+operation depends on an entitlement. The dispatcher enforces every listed ID
+before invoking the handler; a frontend declaration alone does not secure it.
+Register the matching entitlement definitions through the injected
+`portalEntitlementsServiceRef`. Missing definitions, absent grants, denied
+permissions, unresolved organization, and inconsistent context deny execution.
+
 Inject `portalOperationsServiceRef` into the backend feature and call
 `operations.register({ pluginId, descriptor, handler })` during initialization.
 The handler receives `OperationRequest` and authenticated `OperationContext`.
@@ -241,8 +248,17 @@ information that the contributor can monitor without blocking the host page.
 
 Use APME's `catalog-backend-module-apme/src/operations.ts` as a concrete reference
 for registration and resource checks, not as a claim that all backend hardening
-is finished. Backend org resolution and entitlement enforcement still need
-alignment; a hidden frontend action does not secure a backend endpoint.
+is finished. Its scan operation and interactive workflow routes enforce the
+trusted organization, scan entitlement, and repository access. Registration and
+deregistration do not require the scanning entitlement. Other legacy routes
+and automatic background scans still need their own policy migration.
+
+Use `resolvePortalContext({ credentials, userInfo, organizations })` when
+adapting another authenticated transport. Inject
+`portalActiveOrganizationServiceRef`; do not infer organization from the user
+namespace, SCM owner, submitted metadata, or a request header. Resource handlers
+must still check catalog read permission and organization scope, for example
+with `assertEntityOrganization(entity, context.organizationId, rootConfig)`.
 
 ## Configuration and packaging responsibilities
 
@@ -275,6 +291,12 @@ matching manifest entitlement definition and descriptor
 `requiredEntitlements: ['quality-insights.assessment']`. Grants choose availability
 for an organization; they are not user membership proof or replacements for RBAC.
 
+If the resolver supplies a non-default organization but existing repositories
+remain in the `default` namespace, configure an explicit compatibility mapping
+as described in the [operations backend reference](../plugins/portal-operations-backend.md).
+The mapping does not rename entities or grant resource permissions. Never map
+one catalog namespace to multiple organizations.
+
 Use the repository's `export-dynamic` scripts and actual `rhdh-cli` embedding
 options, rather than the historical Janus/Scalprum examples. Re-export consumers
 when shared contracts change. Packaging compatibility has only been exercised
@@ -292,7 +314,8 @@ registry singleton or publish mount-point YAML.
 - [ ] Loading, empty, failure and restricted states are defined.
 - [ ] New mutations use registered operations with permission and schema checks.
 - [ ] Backend handlers authorize the selected resource independently of the UI.
-- [ ] Backend organization/entitlement limitations are addressed for the deployment.
+- [ ] Backend operation entitlements are declared and registered, with denied-path tests.
+- [ ] Organization scope uses the injected resolver and explicit catalog partition policy.
 - [ ] Long-running operations distinguish acceptance, progress and completion.
 - [ ] Disabled configuration and missing artifacts remove the intended capability.
 - [ ] Other optional plugin implementations and private RHDH APIs are not dependencies.

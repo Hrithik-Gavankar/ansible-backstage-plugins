@@ -15,6 +15,12 @@ import type {
 } from '@ansible/portal-extension-common';
 import type { PortalContext } from './types';
 import { AuditEmitter } from './auditEmitter';
+import {
+  portalActiveOrganizationServiceRef,
+  portalEntitlementsServiceRef,
+  type ActiveOrganizationResolver,
+  type PortalEntitlements,
+} from './entitlements';
 
 export interface OperationContext extends PortalContext {
   credentials: BackstageCredentials;
@@ -41,7 +47,11 @@ export class PortalOperations {
     }
   >();
 
-  constructor(private readonly logger: LoggerService) {}
+  constructor(
+    private readonly logger: LoggerService,
+    private readonly organizations: ActiveOrganizationResolver,
+    private readonly entitlements: Pick<PortalEntitlements, 'check'>,
+  ) {}
 
   register(registration: OperationRegistration): void {
     const { descriptor, pluginId } = registration;
@@ -53,8 +63,23 @@ export class PortalOperations {
     if (this.registrations.has(descriptor.id)) {
       throw new InputError(`Duplicate operation: ${descriptor.id}`);
     }
+    if (
+      descriptor.requiredEntitlements &&
+      (new Set(descriptor.requiredEntitlements).size !==
+        descriptor.requiredEntitlements.length ||
+        descriptor.requiredEntitlements.some(
+          id => !/^[a-z][a-z0-9-]*\.[a-z0-9.-]+$/.test(id),
+        ))
+    )
+      throw new InputError('Invalid operation entitlement requirements');
     this.registrations.set(descriptor.id, {
-      registration,
+      registration: {
+        ...registration,
+        descriptor: {
+          ...descriptor,
+          requiredEntitlements: [...(descriptor.requiredEntitlements ?? [])],
+        },
+      },
       input: descriptor.inputSchema
         ? this.ajv.compile(descriptor.inputSchema)
         : undefined,
@@ -79,10 +104,34 @@ export class PortalOperations {
     const event = {
       operationId,
       userId: context.userId,
-      organizationId: context.organizationId,
+      organizationId: 'unresolved',
       input: { entityRef: request.subject.entityRef },
     };
     try {
+      const principal = context.credentials.principal;
+      if (
+        !principal ||
+        typeof principal !== 'object' ||
+        !('type' in principal) ||
+        principal.type !== 'user'
+      ) {
+        throw new NotAllowedError('Operation requires an authenticated user');
+      }
+      let organizationId: string | undefined;
+      try {
+        organizationId = await this.organizations.resolve(context.credentials);
+      } catch {
+        throw new NotAllowedError('Active organization could not be resolved');
+      }
+      if (organizationId?.trim()) event.organizationId = organizationId;
+      if (
+        !organizationId?.trim() ||
+        organizationId !== context.organizationId
+      ) {
+        throw new NotAllowedError(
+          'Operation organization context is missing, ambiguous or inconsistent',
+        );
+      }
       const requirement = registration.descriptor.permission!;
       const query =
         'permission' in requirement ? requirement : { permission: requirement };
@@ -94,6 +143,19 @@ export class PortalOperations {
       }
       if (entry.input && !entry.input(request.input ?? {})) {
         throw new InputError('Operation input does not match its schema');
+      }
+      for (const id of registration.descriptor.requiredEntitlements ?? []) {
+        const entitlementDecision = await this.entitlements.check(
+          id,
+          context.credentials,
+          permissions,
+        );
+        if (
+          !entitlementDecision.allowed ||
+          entitlementDecision.organizationId !== organizationId
+        ) {
+          throw new NotAllowedError('Operation entitlement denied');
+        }
       }
       const result = await registration.handler(request, context);
       if (entry.output && !entry.output(result)) {
@@ -114,7 +176,12 @@ export const portalOperationsServiceRef = createServiceRef<PortalOperations>({
   defaultFactory: async service =>
     createServiceFactory({
       service,
-      deps: { logger: coreServices.rootLogger },
-      factory: async ({ logger }) => new PortalOperations(logger),
+      deps: {
+        logger: coreServices.rootLogger,
+        organizations: portalActiveOrganizationServiceRef,
+        entitlements: portalEntitlementsServiceRef,
+      },
+      factory: async ({ logger, organizations, entitlements }) =>
+        new PortalOperations(logger, organizations, entitlements),
     }),
 });

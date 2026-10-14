@@ -110,6 +110,10 @@ The current native implementation includes:
 - APME-owned summary refresh while background operations remain active.
 - Server-configured active organization and entitlement grants. This is a
   single-active-organization resolver, not an authenticated organization switcher.
+- Consistent organization context across operation and registration transports,
+  central enforcement of declared operation entitlements, and authorized APME
+  interactive workflow forwarding. Explicit catalog namespace mappings preserve
+  legacy repository references without equating identity namespace with organization.
 
 The legacy app is an explicit `?portalFrontend=legacy` fallback. Do not install
 its side-effect registration entry point alongside native APME declarations.
@@ -158,6 +162,10 @@ fields do not block the content boundary. See the
 It is still a proposal, not a jointly frozen production contract.
 
 ### Production contracts and delivery
+
+Authorization migration remains for legacy mutation routes and automatic
+background scans. The current interactive checks do not create organization
+selection, gateway tenancy, or cancellation of already-running work.
 
 Before broader release, agree on contract versioning, compatibility guarantees,
 package publication, and delivery ownership with the consuming teams. Complete

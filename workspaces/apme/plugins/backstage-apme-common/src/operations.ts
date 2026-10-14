@@ -88,6 +88,7 @@ export const apmeQualityScanPermission = createPermission({
 });
 
 export const apmeQualityScanOperation = {
+  requiredEntitlements: [apmeScanningEntitlement.id],
   id: 'apme.quality.scan',
   version: '1.0.0',
   permission: apmeQualityScanPermission,

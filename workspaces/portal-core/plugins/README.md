@@ -59,7 +59,7 @@ alongside the contributor's native registration path.
 flowchart LR
   UI["Operation client<br/>operation ID and subject"]
   HTTP["operations-backend<br/>Authentication and request validation"]
-  Service["Injected operations service<br/>Permission, schemas, audit"]
+  Service["Injected operations service<br/>Organization, permission, entitlements, schemas, audit"]
   Handler["Contributor handler<br/>Resource checks and domain work"]
   Health["Injected health service"]
   Endpoint["health-backend<br/>Status snapshot"]
@@ -69,9 +69,9 @@ flowchart LR
 ```
 
 Operation descriptors do not contain arbitrary handler URLs. A descriptor must
-also have a registered backend handler. The dispatcher checks permission and
-declared schemas; contributor handlers must authorize resources and apply
-domain checks.
+also have a registered backend handler. The dispatcher verifies trusted
+organization context, permission, declared entitlements, and schemas;
+contributor handlers must authorize resources and apply domain checks.
 
 Health is a separate backend reporting flow. `PortalHealthStatus` is an
 available host component, not an installed dashboard or global indicator.
@@ -80,10 +80,12 @@ settings contribution routing/persistence is implemented.
 
 ## Preview limitations
 
-The current REST operation context still derives organization from identity
-namespace, while entitlement resolution uses trusted deployment configuration.
-Backend tenant consistency and server-side entitlement enforcement need closure.
-Configuration grants do not prove membership or replace RBAC.
+Operation transports and APME interactive workflows resolve organization from
+the injected host service, not identity namespace. Declared operation entitlements
+are enforced server-side. Explicit catalog namespace mappings preserve legacy
+references; configuration grants do not prove membership or replace RBAC.
+Remaining legacy mutations, automatic scan policy, and organization switching
+are separate work.
 
 Structured audit emission is not durable audit storage. Idempotency metadata
 does not install a persistent retry-key mechanism. Common launch types do not

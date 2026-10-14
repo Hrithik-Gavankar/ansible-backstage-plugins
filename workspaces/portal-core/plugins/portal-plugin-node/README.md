@@ -19,7 +19,10 @@ yarn workspace my-backend-plugin add @ansible/portal-plugin-node
 ## Quick start
 
 ```ts
-import { createPortalPlugin } from '@ansible/portal-plugin-node';
+import {
+  createPortalPlugin,
+  portalActiveOrganizationServiceRef,
+} from '@ansible/portal-plugin-node';
 
 // Create once per backend module
 const portalPlugin = createPortalPlugin({ pluginId: 'my-plugin' });
@@ -30,13 +33,20 @@ export const myBackendModule = createBackendModule({
   moduleId: 'my-module',
   register(reg) {
     reg.registerInit({
-      deps: { logger, httpAuth, userInfo, scheduler },
-      async init({ logger, httpAuth, userInfo }) {
+      deps: {
+        logger,
+        httpAuth,
+        userInfo,
+        scheduler,
+        organizations: portalActiveOrganizationServiceRef,
+      },
+      async init({ logger, httpAuth, userInfo, organizations }) {
         // Configure logger and attach identity middleware to your router
         const middleware = portalPlugin.createMiddleware({
           httpAuth,
           userInfo,
           logger,
+          organizations,
         });
         router.use(middleware);
 
@@ -80,6 +90,7 @@ const middleware = portalPlugin.createMiddleware({
   httpAuth,
   userInfo,
   logger,
+  organizations,
 });
 router.use(middleware);
 ```
@@ -88,14 +99,15 @@ Also configures the plugin's audit emitter with the provided logger.
 
 **Options:**
 
-| Field           | Type              | Description                                                                |
-| --------------- | ----------------- | -------------------------------------------------------------------------- |
-| `httpAuth`      | `HttpAuthService` | Backstage HTTP auth service                                                |
-| `userInfo`      | `UserInfoService` | Backstage user info service                                                |
-| `logger`        | `LoggerService`   | Logger for auth failures                                                   |
-| `defaultOrgId?` | `string`          | Org ID to use when user namespace is `'default'`. Defaults to `'default'`. |
+| Field           | Type                         | Description                                                                |
+| --------------- | ---------------------------- | -------------------------------------------------------------------------- |
+| `httpAuth`      | `HttpAuthService`            | Backstage HTTP auth service                                                |
+| `userInfo`      | `UserInfoService`            | Backstage user info service                                                |
+| `logger`        | `LoggerService`              | Logger for auth failures                                                   |
+| `organizations` | `ActiveOrganizationResolver` | Injected host resolver; organization is independent of identity namespace. |
+| `defaultOrgId?` | `string`                     | Deprecated and ignored; configure the host resolver instead.               |
 
-The middleware never blocks unauthenticated requests — route handlers must check for `req.portalContext` when they require it.
+The middleware never blocks unauthenticated requests — route handlers must check for `req.portalContext` when they require it. Unresolved identity or organization clears any stale context. Missing organization does not fall back to the user's namespace.
 
 **TypeScript augmentation:** Declare `req.portalContext` in your module:
 
@@ -220,7 +232,12 @@ Lower-level exports if you need to create the identity middleware without a `Por
 
 ```ts
 import { createIdentityMiddleware } from '@ansible/portal-plugin-node';
-const middleware = createIdentityMiddleware({ httpAuth, userInfo, logger });
+const middleware = createIdentityMiddleware({
+  httpAuth,
+  userInfo,
+  logger,
+  organizations,
+});
 ```
 
 ### `HealthRegistry` / `getAllHealthStatuses()`

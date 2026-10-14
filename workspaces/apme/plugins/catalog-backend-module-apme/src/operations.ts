@@ -1,4 +1,5 @@
 import type { CatalogClient } from '@backstage/catalog-client';
+import type { Config } from '@backstage/config';
 import type {
   AuthService,
   PermissionsService,
@@ -6,7 +7,10 @@ import type {
 import { catalogEntityReadPermission } from '@backstage/plugin-catalog-common/alpha';
 import { AuthorizeResult } from '@backstage/plugin-permission-common';
 import { InputError, NotAllowedError, NotFoundError } from '@backstage/errors';
-import type { PortalOperations } from '@ansible/portal-plugin-node';
+import {
+  assertEntityOrganization,
+  type PortalOperations,
+} from '@ansible/portal-plugin-node';
 import type { ManualGitRepositoryProvider } from './providers/ManualGitRepositoryProvider';
 import { apmeRepositoryDeregisterOperation } from '@ansible/backstage-apme-common/operations';
 import {
@@ -18,6 +22,7 @@ import {
 
 export function registerApmeOperations(options: {
   operations: PortalOperations;
+  rootConfig: Config;
   catalogClient: CatalogClient;
   auth: AuthService;
   permissions: PermissionsService;
@@ -57,13 +62,11 @@ export function registerApmeOperations(options: {
       ) {
         throw new InputError('Quality scan requires a Git repository');
       }
-      // PoC organization convention: identity and repository catalog namespace.
-      // This is deliberately restrictive until the organization resolver is agreed.
-      if ((entity.metadata.namespace ?? 'default') !== context.organizationId) {
-        throw new NotAllowedError(
-          'Repository is outside the active organization',
-        );
-      }
+      assertEntityOrganization(
+        entity,
+        context.organizationId,
+        options.rootConfig,
+      );
       const repoUrl = normalizeRepoUrlFromEntity(entity);
       if (options.manualProvider?.isTrackingStopped(entity)) {
         throw new NotFoundError('Repository is no longer tracked by Portal');
@@ -113,13 +116,11 @@ export function registerApmeOperations(options: {
           { token },
         );
         if (!entity) throw new NotFoundError('Repository not found');
-        if (
-          (entity.metadata.namespace ?? 'default') !== context.organizationId
-        ) {
-          throw new NotAllowedError(
-            'Repository is outside the active organization',
-          );
-        }
+        assertEntityOrganization(
+          entity,
+          context.organizationId,
+          options.rootConfig,
+        );
         if (
           entity.kind.toLowerCase() !== 'component' ||
           entity.spec?.type !== 'git-repository' ||

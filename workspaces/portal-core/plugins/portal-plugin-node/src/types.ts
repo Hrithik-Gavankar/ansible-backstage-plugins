@@ -13,13 +13,9 @@
  * `createIdentityMiddleware`. Every route handler that needs the caller's
  * identity reads from here — it does **not** accept caller-supplied IDs.
  *
- * `organizationId` is derived from the Backstage user entity ref namespace:
- * - `user:default/johndoe` → `organizationId = 'default'`
- * - `user:acme-corp/jane.doe` → `organizationId = 'acme-corp'`
- *
- * In single-org deployments the namespace is always `'default'`. This is
- * intentional — even single-org deployments key every query by org so that
- * adding a second org later never requires a schema migration.
+ * `organizationId` comes from the injected host organization resolver, not
+ * the user namespace or request input. Catalog placement is a separate,
+ * explicit host policy; it is not proof of organization membership.
  */
 export interface PortalContext {
   /** Full Backstage entity reference (e.g. `user:default/johndoe`). */
@@ -27,7 +23,7 @@ export interface PortalContext {
   /** Username extracted from the entity ref (e.g. `johndoe`). */
   userId: string;
   /**
-   * Organization derived from the entity ref namespace.
+   * Trusted active organization resolved by the host.
    * Use this as the partition key on every database query.
    */
   organizationId: string;

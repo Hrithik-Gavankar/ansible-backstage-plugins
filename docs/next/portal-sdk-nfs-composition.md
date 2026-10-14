@@ -131,9 +131,13 @@ workflow launcher, and deregistration. Scanning requires
 - Complete content extraction, query/write contracts, and picker migration.
 - Compatibility validation is intentionally limited to `next-2.1` for this slice.
   The entitlement resolver selects one active organization from trusted server
-  configuration. The REST operation context still derives organization from
-  user namespace; aligning these paths and backend entitlement enforcement
-  remains hardening work, not a guarantee supplied by frontend gates.
+  configuration. REST operations, registration adapters, and APME interactive
+  workflows use the same resolver, independently of identity namespace. The
+  dispatcher enforces declared entitlements; APME workflows also check repository
+  access before gateway forwarding. Explicit catalog namespace mappings preserve
+  legacy references. Remaining legacy mutations and automatic scan policy are
+  not guarantees supplied by frontend gates. See the
+  [operations backend policy](../plugins/portal-operations-backend.md).
 - The native app does not import APME's legacy entry point for registration side
   effects. The explicitly selected legacy fallback still has its own registration.
   Do not install both registration paths in the same native app.

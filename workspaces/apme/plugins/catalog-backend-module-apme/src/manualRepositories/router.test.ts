@@ -46,7 +46,11 @@ describe('manual registration router', () => {
       applyMutation,
     } as unknown as EntityProviderConnection);
     const application = express();
-    const operations = new PortalOperations(mockServices.logger.mock());
+    const operations = new PortalOperations(
+      mockServices.logger.mock(),
+      { resolve: async () => 'acme' },
+      { check: jest.fn() },
+    );
     registerRepositoryOperation({
       operations,
       auth: mockServices.auth(),
@@ -66,6 +70,7 @@ describe('manual registration router', () => {
         httpAuth,
         userInfo,
         operations,
+        organizations: { resolve: async () => 'acme' },
       }),
     );
     application.use(
@@ -89,9 +94,11 @@ describe('manual registration router', () => {
     permissions.authorize.mockResolvedValue([
       { result: AuthorizeResult.ALLOW },
     ]);
-    httpAuth.credentials.mockResolvedValue(
-      await mockServices.auth().getOwnServiceCredentials(),
-    );
+    httpAuth.credentials.mockResolvedValue({
+      $$type: '@backstage/BackstageCredentials',
+      principal: { type: 'user', userEntityRef: 'user:acme/alice' },
+      expiresAt: undefined,
+    });
     userInfo.getUserInfo.mockResolvedValue({
       userEntityRef: 'user:acme/alice',
       ownershipEntityRefs: [],
