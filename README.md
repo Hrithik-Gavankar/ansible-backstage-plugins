@@ -45,7 +45,7 @@ The source app defaults to native NFS composition. APME demonstrates a third-par
 contributor without direct dependencies on self-service page components.
 
 This branch is an experimental SDK implementation. Native composition does not
-complete Phase 6 content extraction or establish production compatibility for
+complete content extraction or establish production compatibility for
 every RHDH version. See the [implementation guide](./docs/next/portal-plugin-factory-implementation-guide.md).
 
 ## Features

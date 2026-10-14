@@ -89,16 +89,18 @@ nav:
       - Self-service:
           - portal-scaffolder: plugins/self-service.md
   - Portal SDK:
+      - SDK architecture: next/portal-sdk-architecture.md
+      - Third-party plugin authors: next/portal-sdk-plugin-author-guide.md
       - Native NFS composition: next/portal-sdk-nfs-composition.md
       - Implementation guide: next/portal-plugin-factory-implementation-guide.md
       - Content picker proposal: next/portal-content-picker-contract-proposal.md
       - Design tokens: next/portal-sdk-design-tokens.md
       - Quickstart (legacy compatibility): next/portal-sdk-quickstart.md
-      - RHDH dynamic plugins: next/portal-sdk-rhdh-dynamic-plugin.md
+      - Dynamic plugins (legacy notes): next/portal-sdk-rhdh-dynamic-plugin.md
   - Architecture:
-      - Historical PoC and planning:
+      - Historical architecture and planning:
           - Content experience refactoring plan: architecture/content-experience-refactor-and-sdk.md
-          - Self-service extension PoC: architecture/self-service-extension-sdk.md
+          - Historical self-service extensions: architecture/self-service-extension-sdk.md
       - Diagrams:
           - Overview: diagrams/README.md
           - Structure: diagrams/architecture/README.md
@@ -134,7 +136,11 @@ markdown_extensions:
   - pymdownx.highlight:
       anchor_linenums: true
   - pymdownx.inlinehilite
-  - pymdownx.superfences
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.magiclink:
       repo_url_shortener: true
       repo_url_shorthand: true

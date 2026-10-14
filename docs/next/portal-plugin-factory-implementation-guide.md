@@ -2,12 +2,12 @@
 
 ## Current delivery scope
 
-ANSTRAT-2497 provides the contracts and SDKs that let first-party and third-party
+The Portal Plugin Factory provides the contracts and SDKs that let first-party and third-party
 plugins contribute to Automation Portal. This is an experimental implementation,
 not a claim that the full Content Experience Architecture has shipped.
 
-As of October 13, 2026, native NFS composition and the agreed functional checks
-are complete. Phase 6 content extraction and cross-team query/write contracts
+Currently, native NFS composition and the agreed functional checks
+are complete. Content extraction and cross-team query/write contracts
 remain separate work. The upstream review branch is
 `feat/portal-plugin-factory-sdk`; `anstrat-2497-poc` retains the original
 development history in the fork.
@@ -127,16 +127,17 @@ These checks do not prove real-AAP authentication inside the RHDH container,
 successful scanning of every repository, or remediation/PR creation.
 
 The closure regression run passed 30 targeted suites and 313 tests, with
-TypeScript and lint checks passing. This is a dated targeted result, not the
+TypeScript and lint checks passing. This is a previous targeted result, not the
 current full-repository test count or a guarantee of GitHub CI status.
 
-The NFS guide passed an isolated strict documentation build. The local full-site
-strict build was blocked by CairoSVG shared-library discovery. Do not describe
-that full-site build as passing.
+The current documentation passes the full strict build. Local documentation
+environments must install the configured theme and support Cairo shared-library
+discovery for social-card generation; a content-only diagnostic build is not
+equivalent to the full configured build.
 
 ## Remaining architecture work
 
-### Phase 6: Content extraction and picker contracts
+### Content extraction and picker contracts
 
 Collections, repository browsing, and built-image views still need their agreed
 content-owned boundary and migration. EE definition authoring and Portal picker
@@ -166,7 +167,7 @@ audit storage from the current SDK helpers.
 
 Repository renaming to `automation-portal-plugins` remains deferred pending
 coordination. The completed workspace move does not mean the repository rename
-or all architecture phases are complete.
+or all planned architecture work is complete.
 
 ## Related documentation
 

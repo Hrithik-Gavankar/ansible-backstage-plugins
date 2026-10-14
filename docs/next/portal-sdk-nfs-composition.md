@@ -1,5 +1,10 @@
 # Portal NFS composition
 
+For package/runtime Mermaid diagrams, see
+[SDK architecture](portal-sdk-architecture.md). For contributor repository
+structure, APIs, examples and acceptance requirements, see the
+[third-party plugin author guide](portal-sdk-plugin-author-guide.md).
+
 ## Composition model
 
 The host owns the `entity.detail.tabs` interaction and placement. Contributors
@@ -49,7 +54,7 @@ from presentation and receive the current subject, not contributor-supplied URLs
    Missing resolvers, denied decisions, and failed checks suppress entitled tabs.
 6. Install the contributor's NFS feature through app discovery or dynamic
    loading. Do not import its legacy `index.ts` for side effects.
-7. Rebuild the host and contributors together. Earlier PoC declarations
+7. Rebuild the host and contributors together. Earlier extension declarations
    attached to `page:portal/entity`; they must use the shared provider attachment.
 
 ### Verification
@@ -123,9 +128,12 @@ workflow launcher, and deregistration. Scanning requires
 - The earlier AWS dependency-resolution failure is not evidence against native
   discovery, but scans of that larger repository still need their own successful
   assessment evidence. Do not weaken Galaxy server validation to make them pass.
-- Complete Phase 6 content extraction, query/write contracts, and picker migration.
+- Complete content extraction, query/write contracts, and picker migration.
 - Compatibility validation is intentionally limited to `next-2.1` for this slice.
-  The host resolves one active organization from server configuration, never user namespace.
+  The entitlement resolver selects one active organization from trusted server
+  configuration. The REST operation context still derives organization from
+  user namespace; aligning these paths and backend entitlement enforcement
+  remains hardening work, not a guarantee supplied by frontend gates.
 - The native app does not import APME's legacy entry point for registration side
   effects. The explicitly selected legacy fallback still has its own registration.
   Do not install both registration paths in the same native app.
