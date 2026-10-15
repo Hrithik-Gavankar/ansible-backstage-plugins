@@ -808,6 +808,6 @@ describe('useLatestCIActivity', () => {
     );
 
     const map = JSON.parse(screen.getByTestId('map').textContent ?? '{}');
-    expect(map).not.toHaveProperty('component:default/phantom-key');
+    expect(map['component:default/phantom-key']).toEqual({ text: 'N/A' });
   });
 });
