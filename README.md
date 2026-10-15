@@ -118,16 +118,14 @@ The root `packageManager` field selects Yarn 4.12.0. Installation resolves all
 configured workspaces and runs the root Husky preparation script. Do not install
 each plugin separately or ignore dependency/native-build errors.
 
-This will:
+Alternatively, run `./install-deps`, which will:
 
 - Install all workspace dependencies
 - Set up Git hooks via Husky (runs [pre-commit](https://pre-commit.com/) from `.pre-commit-config.yaml`)
 - Install the pre-commit CLI and prefetch hook environments (requires Python 3 + pip)
 
-**Note**: The older `install-deps` helper references the removed root `plugins/` directory.
-Use the root workspace command above for this branch. On systems with strict security
-policies, some native package builds may fail; this is usually acceptable as they're
-often optional dependencies.
+If you use only `yarn install --immutable`, install pre-commit manually:
+`pip install pre-commit && pre-commit install-hooks`.
 
 3. **Verify Installation**
 

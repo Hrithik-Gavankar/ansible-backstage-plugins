@@ -806,5 +806,8 @@ describe('useLatestCIActivity', () => {
     expect(screen.getByTestId('activity-known-repo')).toHaveTextContent(
       'CI #1',
     );
+
+    const map = JSON.parse(screen.getByTestId('map').textContent ?? '{}');
+    expect(map).not.toHaveProperty('component:default/phantom-key');
   });
 });

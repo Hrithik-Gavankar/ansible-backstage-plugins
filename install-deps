@@ -9,19 +9,21 @@ printf "==================== Step: Root Deps Installation => Complete ==========
 
 printf "==================== Step: pre-commit CLI => Start ====================\n"
 if command -v python3 >/dev/null 2>&1; then
-  if python3 -m pip install pre-commit; then
-    if command -v pre-commit >/dev/null 2>&1; then
-      pre-commit install-hooks
-    elif python3 -m pre_commit install-hooks; then
-      :
-    else
-      echo "Warning: pre-commit installed but install-hooks failed."
-    fi
+  python3 -m pip install pre-commit || true
+
+  if command -v pre-commit >/dev/null 2>&1; then
+    pre-commit install-hooks
+  elif python3 -m pre_commit install-hooks 2>/dev/null; then
+    :
   else
-    echo "Warning: failed to install pre-commit. Install manually: pip install pre-commit"
+    echo "Error: pre-commit is not available on PATH after install." >&2
+    echo "Install manually: pip install pre-commit" >&2
+    exit 1
   fi
 else
-  echo "Warning: python3 not found. Install pre-commit before committing: pip install pre-commit"
+  echo "Error: python3 not found. pre-commit is required for Git hooks." >&2
+  echo "Install Python 3 and then: pip install pre-commit" >&2
+  exit 1
 fi
 printf "==================== Step: pre-commit CLI => Complete ====================\n"
 

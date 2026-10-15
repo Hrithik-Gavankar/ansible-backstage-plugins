@@ -44,11 +44,11 @@ yarn fix                # Auto-fix lint issues
 yarn prettier:check     # Check formatting
 
 # Fast feedback — single file or package (use while iterating)
-npx eslint --fix plugins/<plugin>/src/path/to/File.tsx   # run from repo root; resolves the plugin's own .eslintrc.js
-npx prettier --write plugins/<plugin>/src/path/to/File.tsx
+npx eslint --fix workspaces/<workspace>/plugins/<plugin>/src/path/to/File.tsx   # run from repo root; resolves the plugin's own .eslintrc.js
+npx prettier --write workspaces/<workspace>/plugins/<plugin>/src/path/to/File.tsx
 yarn workspace <package> test path/to/File.test.tsx --watch=false
 yarn workspace <package> lint                # package-scoped lint (backstage-cli package lint)
-npx tsc --noEmit -p plugins/<plugin>         # package-scoped type check; faster than yarn tsc
+npx tsc --noEmit -p workspaces/<workspace>/plugins/<plugin>   # package-scoped type check; faster than yarn tsc
 # Note: `yarn workspace <package> exec <bin>` does NOT put node_modules/.bin on PATH in this
 # repo (Yarn 4, nodeLinker: node-modules) — prefer `npx <bin>` or the package.json scripts above.
 ```
