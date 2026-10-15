@@ -165,7 +165,10 @@ test.describe.serial('templates01-catalog', () => {
         skeletonCount > 0 ||
         hasEmptyState ||
         hasLoadingIndicator,
-      `Expected cards (${cardCount}), skeletons (${skeletonCount}), empty state, or loading indicator. Main text: ${mainText.substring(0, 100)}`,
+      `Expected cards (${cardCount}), skeletons (${skeletonCount}), empty state, or loading indicator. Main text: ${mainText.substring(
+        0,
+        100,
+      )}`,
     ).toBeTruthy();
   });
 
@@ -202,13 +205,16 @@ test.describe.serial('templates01-catalog', () => {
 
     const cardsPage1 = await templateTitles.count();
     expect(cardsPage1).toBeGreaterThan(0);
+    const titlesPage1 = await templateTitles.allTextContents();
 
     await next.click();
     await expect(page).toHaveURL(/[?&]offset=(?!0(?:&|$))\d+/, {
       timeout: 15000,
     });
     await expect(pageIndicator).toHaveText(/2\s*\/\s*\d+/, { timeout: 15000 });
-    await expect(templateTitles.first()).toBeVisible({ timeout: 15000 });
+    await expect
+      .poll(() => templateTitles.allTextContents(), { timeout: 15000 })
+      .not.toEqual(titlesPage1);
 
     const prev = pagination.getByLabel('Previous page').first();
     await expect(prev).toBeVisible();
