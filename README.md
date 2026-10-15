@@ -68,12 +68,10 @@ Before setting up the development environment, ensure you have:
 ### Required Software
 
 - **Node.js**: Version **22** or **24**, matching the root package engines and CI matrix
-
   - Check version: `node --version`
   - Install via [nvm](https://github.com/nvm-sh/nvm) or from [nodejs.org](https://nodejs.org/)
 
 - **Yarn**: Version **4.12.0** (managed via Corepack, as pinned in `package.json`)
-
   - Install Corepack if your Node.js distribution does not include it
   - Enable Corepack: `corepack enable`
   - Verify: `yarn --version`
@@ -90,7 +88,6 @@ Before setting up the development environment, ensure you have:
 ### Optional But Recommended
 
 - **Ansible Automation Platform**: Access to an AAP instance for full functionality
-
   - Version 2.4 or later recommended
   - API access token with appropriate permissions
 
@@ -121,8 +118,16 @@ The root `packageManager` field selects Yarn 4.12.0. Installation resolves all
 configured workspaces and runs the root Husky preparation script. Do not install
 each plugin separately or ignore dependency/native-build errors.
 
-The older `install-deps` helper still targets the removed root `plugins/` directory;
-use the root workspace command above for this branch.
+This will:
+
+- Install all workspace dependencies
+- Set up Git hooks via Husky (runs [pre-commit](https://pre-commit.com/) from `.pre-commit-config.yaml`)
+- Install the pre-commit CLI and prefetch hook environments (requires Python 3 + pip)
+
+**Note**: The older `install-deps` helper references the removed root `plugins/` directory.
+Use the root workspace command above for this branch. On systems with strict security
+policies, some native package builds may fail; this is usually acceptable as they're
+often optional dependencies.
 
 3. **Verify Installation**
 
