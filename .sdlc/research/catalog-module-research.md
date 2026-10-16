@@ -1,6 +1,6 @@
 # Catalog Backend Module Research — Split Analysis
 
-> **Architecture reference:** [Content Experience Architecture](https://github.com/ansible/ansible-rhdh-plugins/blob/portal-plugin-research/.sdlc/research/plugin-factory/Content%20Experience%20Architecture.md) (§2.2 workspace layout, §7.3–§7.4 provider boundaries)
+> **Architecture reference:** [Content Experience Architecture](https://github.com/ansible/ansible-rhdh-plugins/blob/portal-plugin-research/.sdlc/research/plugin-factory/Content%20Experience%20Architecture.md) (private repo — §2.2 workspace layout, §7.3–§7.4 provider boundaries)
 >
 > **Scope:** Analyze the monolithic `catalog-backend-module-rhaap` and determine the minimal split that preserves entity refs, operator URLs, and downstream consumers.
 
@@ -158,7 +158,14 @@ If providers split across modules, `/ansible/sync/status` must aggregate results
 2. A thin aggregator route queries all modules (complex)
 3. Status moves to a shared backend service
 
-**Recommended:** Option 1 — each module owns its status; self-service UI aggregates.
+**Decision:** Option 1 — each module owns its status; self-service UI aggregates.
+
+**Route strategy:** Each module registers a status endpoint under a module-specific path:
+
+- `catalog-backend-module-aap` → `GET /ansible/sync/status/aap`
+- `catalog-backend-module-portal-content` → `GET /ansible/sync/status/content`
+
+The deprecated shim retains `GET /ansible/sync/status` (original path) for backward compatibility. The self-service UI calls each module's endpoint and aggregates client-side.
 
 ### 4.5 PAHCollectionProvider transition
 
@@ -167,7 +174,22 @@ If providers split across modules, `/ansible/sync/status` must aggregate results
 - Import from the backward-compatibility shim until the content workspace claims it
 - Move to a content-owned service contract
 
-**Recommended:** Provider stays in catalog-module with shim import until content workspace is ready.
+**Current call contract (must be preserved):**
+
+```typescript
+// PAHCollectionProvider.ts:231-258
+syncCollectionsByRepositories(
+  [this.pahRepositoryName], // repository selection (single repo)
+  100, // limit per request
+  signal, // AbortSignal for cancellation
+): Promise<Collection[]> // result shape from AAPClient
+```
+
+The content-owned service must preserve: repository selection, pagination limit, cancellation signal support, and `Promise<Collection[]>` result shape.
+
+**Decision:** During Phase 1, `PAHCollectionProvider` stays in the deprecated shim package (original `catalog-backend-module-rhaap`) and imports from `backstage-rhaap-common`. Operators loading the shim get PAH sync automatically. Operators loading the new split modules (`catalog-backend-module-aap` + `catalog-backend-module-portal-content`) get PAH sync from the content module. The shim and content module must not be loaded simultaneously to avoid duplicate providers.
+
+In Phase 3, the content workspace owns the provider and the underlying service contract; the shim is removed.
 
 ---
 
@@ -240,12 +262,12 @@ If providers split across modules, `/ansible/sync/status` must aggregate results
 
 ## 8. Open Questions
 
-| Question                                                           | Decision Needed By |
-| ------------------------------------------------------------------ | ------------------ |
-| Should sync status be aggregated server-side or client-side?       | Phase 1            |
-| Should `PAHCollectionProvider` stay in catalog or move to content? | Phase 1            |
-| What is the minimal dynamic plugin set for AAP-only identity sync? | Phase 1            |
-| Should Git helpers move to content or stay with catalog?           | Phase 1            |
+| Question                                                           | Status                                                       |
+| ------------------------------------------------------------------ | ------------------------------------------------------------ |
+| Should sync status be aggregated server-side or client-side?       | ✅ Resolved — client-side (see §4.4)                         |
+| Should `PAHCollectionProvider` stay in catalog or move to content? | ✅ Resolved — shim in Phase 1, content in Phase 3 (see §4.5) |
+| What is the minimal dynamic plugin set for AAP-only identity sync? | Open — decide in Phase 1                                     |
+| Should Git helpers move to content or stay with catalog?           | Open — decide in Phase 1                                     |
 
 ---
 
