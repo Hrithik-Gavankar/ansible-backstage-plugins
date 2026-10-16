@@ -209,7 +209,9 @@ export class AAPClient implements IAAPService {
           // @ts-ignore
           throw new Error(errorOutput.__all__.join(' '));
         } else if (errorOutput.constructor === Object) {
-          const errorData = Object.values(errorOutput);
+          const errorData = Object.values(errorOutput).map(value =>
+            typeof value === 'string' ? value : JSON.stringify(value),
+          );
           throw new Error(errorData.join(' '));
         }
       }
@@ -520,16 +522,40 @@ export class AAPClient implements IAAPService {
     extraVariables: any,
     git_username: string | undefined,
     git_password: string | undefined,
+    scmHost: string | undefined,
   ) {
+    if (
+      !git_username ||
+      !git_password ||
+      !scmHost ||
+      !Array.isArray(extraVariables.usecases)
+    ) {
+      return extraVariables;
+    }
     return {
       ...extraVariables,
-      usecases: extraVariables.usecases.map((usecase: any) => ({
-        ...usecase,
-        url: usecase.url.replace(
-          'https://',
-          `https://${git_username}:${git_password}@`,
-        ),
-      })),
+      usecases: extraVariables.usecases.map((usecase: any) => {
+        if (typeof usecase?.url !== 'string') return usecase;
+        let url: URL;
+        try {
+          url = new URL(usecase.url);
+        } catch {
+          return usecase;
+        }
+        // Bind the credential to the integration that supplied it, including
+        // its port. Never send that credential to another HTTPS host.
+        if (
+          url.protocol !== 'https:' ||
+          url.host.toLowerCase() !== scmHost.toLowerCase() ||
+          url.username ||
+          url.password
+        ) {
+          return usecase;
+        }
+        url.username = git_username;
+        url.password = git_password;
+        return { ...usecase, url: url.toString() };
+      }),
     };
   }
 
@@ -554,16 +580,17 @@ export class AAPClient implements IAAPService {
       extraVariables.aap_validate_certs = this.ansibleConfig.rhaap?.checkSSL;
       extraVariables.aap_hostname = this.ansibleConfig.rhaap?.baseUrl;
       if (payload.credentials && payload.credentials?.kind === 'scm') {
-        let git_password;
+        let scmIntegration;
         if (payload.scmType === 'Github') {
-          git_password = this.ansibleConfig.githubIntegration?.token;
+          scmIntegration = this.ansibleConfig.githubIntegration;
         } else if (payload.scmType === 'Gitlab') {
-          git_password = this.ansibleConfig.gitlabIntegration?.token;
+          scmIntegration = this.ansibleConfig.gitlabIntegration;
         }
         extraVariables = await this.updateUseCaseUrls(
           extraVariables,
           payload.credentials?.inputs?.username,
-          git_password,
+          scmIntegration?.token,
+          scmIntegration?.host,
         );
       }
     }
