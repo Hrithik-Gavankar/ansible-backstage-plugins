@@ -34,12 +34,12 @@ export function NativeScaffolderFields({
   reservedNames = EMPTY_NAMES,
   availableExperiences = DEFAULT_EXPERIENCES,
   children,
-}: {
+}: Readonly<{
   declarations: readonly ScaffolderFieldDescriptor[];
   reservedNames?: readonly string[];
   availableExperiences?: readonly string[];
   children: (fields: FieldExtensionOptions<any, any>[]) => JSX.Element;
-}) {
+}>) {
   const config = useApi(configApiRef);
   const permissions = useApi(permissionApiRef);
   const [state, setState] = useState<{
