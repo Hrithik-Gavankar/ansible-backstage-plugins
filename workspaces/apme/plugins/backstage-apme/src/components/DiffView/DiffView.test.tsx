@@ -55,6 +55,31 @@ describe('DiffView', () => {
     expect(screen.getByText('unchanged')).toBeInTheDocument();
   });
 
+  it('renders file headers and context lines without a leading space', () => {
+    render(
+      <DiffView
+        diff={'--- a/tasks.yml\n+++ b/tasks.yml\nno-leading-space-context'}
+      />,
+    );
+    expect(screen.getByText('--- a/tasks.yml')).toBeInTheDocument();
+    expect(screen.getByText('+++ b/tasks.yml')).toBeInTheDocument();
+    expect(screen.getByText('no-leading-space-context')).toBeInTheDocument();
+  });
+
+  it('parses hunk headers with comma ranges and assigns line numbers', () => {
+    render(<DiffView diff={'@@ -12,2 +14,2 @@\n removed\n+added\n context'} />);
+    expect(screen.getByText('12')).toBeInTheDocument();
+    expect(screen.getByText('14')).toBeInTheDocument();
+    expect(screen.getByText('removed')).toBeInTheDocument();
+    expect(screen.getByText('added')).toBeInTheDocument();
+    expect(screen.getByText('context')).toBeInTheDocument();
+  });
+
+  it('skips trailing blank lines inside a hunk', () => {
+    render(<DiffView diff={'-only\n+\n'} />);
+    expect(screen.getByText('only')).toBeInTheDocument();
+  });
+
   it('renders labeled side-by-side panels and tolerates a missing side', () => {
     render(
       <DiffView
