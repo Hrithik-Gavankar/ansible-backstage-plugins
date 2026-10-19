@@ -185,53 +185,46 @@ function parseHunkHeader(
   return { line: { type: 'context', content: raw }, state: newState };
 }
 
-/** Parse a single diff line and return the DiffLine with updated state */
-function parseDiffLine(
+function parseAddedDiffLine(
   raw: string,
   state: DiffParseState,
-): { line: DiffLine; state: DiffParseState } | null {
-  // Skip empty lines in the middle of results
-  if (!raw) return null;
-
-  // Hunk header
-  if (raw.startsWith('@@')) {
-    return parseHunkHeader(raw, state);
-  }
-
-  // File headers
-  if (raw.startsWith('+++') || raw.startsWith('---')) {
-    return { line: { type: 'context', content: raw }, state };
-  }
-
-  // Added line
-  if (raw.startsWith('+')) {
-    const line: DiffLine = {
-      type: 'added',
-      content: raw.slice(1),
-      newNum: state.newNum > 0 ? state.newNum : undefined,
-    };
-    const newState = {
+): { line: DiffLine; state: DiffParseState } {
+  const line: DiffLine = {
+    type: 'added',
+    content: raw.slice(1),
+    newNum: state.newNum > 0 ? state.newNum : undefined,
+  };
+  return {
+    line,
+    state: {
       ...state,
       newNum: state.newNum > 0 ? state.newNum + 1 : 0,
-    };
-    return { line, state: newState };
-  }
+    },
+  };
+}
 
-  // Removed line
-  if (raw.startsWith('-')) {
-    const line: DiffLine = {
-      type: 'removed',
-      content: raw.slice(1),
-      oldNum: state.oldNum > 0 ? state.oldNum : undefined,
-    };
-    const newState = {
+function parseRemovedDiffLine(
+  raw: string,
+  state: DiffParseState,
+): { line: DiffLine; state: DiffParseState } {
+  const line: DiffLine = {
+    type: 'removed',
+    content: raw.slice(1),
+    oldNum: state.oldNum > 0 ? state.oldNum : undefined,
+  };
+  return {
+    line,
+    state: {
       ...state,
       oldNum: state.oldNum > 0 ? state.oldNum + 1 : 0,
-    };
-    return { line, state: newState };
-  }
+    },
+  };
+}
 
-  // Context line
+function parseContextDiffLine(
+  raw: string,
+  state: DiffParseState,
+): { line: DiffLine; state: DiffParseState } {
   const content = raw.startsWith(' ') ? raw.slice(1) : raw;
   const line: DiffLine = {
     type: 'context',
@@ -239,11 +232,39 @@ function parseDiffLine(
     oldNum: state.oldNum > 0 ? state.oldNum : undefined,
     newNum: state.newNum > 0 ? state.newNum : undefined,
   };
-  const newState = {
-    oldNum: state.oldNum > 0 ? state.oldNum + 1 : 0,
-    newNum: state.newNum > 0 ? state.newNum + 1 : 0,
+  return {
+    line,
+    state: {
+      oldNum: state.oldNum > 0 ? state.oldNum + 1 : 0,
+      newNum: state.newNum > 0 ? state.newNum + 1 : 0,
+    },
   };
-  return { line, state: newState };
+}
+
+/** Parse a single diff line and return the DiffLine with updated state */
+function parseDiffLine(
+  raw: string,
+  state: DiffParseState,
+): { line: DiffLine; state: DiffParseState } | null {
+  if (!raw) return null;
+
+  if (raw.startsWith('@@')) {
+    return parseHunkHeader(raw, state);
+  }
+
+  if (raw.startsWith('+++') || raw.startsWith('---')) {
+    return { line: { type: 'context', content: raw }, state };
+  }
+
+  if (raw.startsWith('+')) {
+    return parseAddedDiffLine(raw, state);
+  }
+
+  if (raw.startsWith('-')) {
+    return parseRemovedDiffLine(raw, state);
+  }
+
+  return parseContextDiffLine(raw, state);
 }
 
 function parseUnifiedDiffHunk(diff: string): DiffLine[] {

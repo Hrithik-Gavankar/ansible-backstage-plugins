@@ -58,8 +58,30 @@ const SEVERITY_SELECT_OPTIONS: { value: number; label: string }[] = [
   { value: 6, label: 'Critical' },
 ];
 
+function errorMessageFromUnknown(err: unknown): string {
+  if (err instanceof Error) {
+    return err.message;
+  }
+  if (typeof err === 'string') {
+    return err;
+  }
+  if (
+    typeof err === 'object' &&
+    err !== null &&
+    'message' in err &&
+    typeof (err as { message: unknown }).message === 'string'
+  ) {
+    return (err as { message: string }).message;
+  }
+  try {
+    return JSON.stringify(err);
+  } catch {
+    return 'Unknown error';
+  }
+}
+
 function toError(err: unknown): Error {
-  return err instanceof Error ? err : new Error(String(err));
+  return err instanceof Error ? err : new Error(errorMessageFromUnknown(err));
 }
 
 /** Gateway/catalog 404 on reset means there was no override to delete. */

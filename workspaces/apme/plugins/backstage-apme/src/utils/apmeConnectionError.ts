@@ -109,7 +109,8 @@ export function formatApmeUserFacingError(raw: string): string {
 
   // "APME API error: 400 - …" → keep status + short body when small
   // Match API error prefix, then extract rest separately to avoid regex backtracking
-  const apiPrefixMatch = raw.match(/^APME API error:\s*(\d{3})\s*-\s*/i);
+  const apiPrefixPattern = /^APME API error:\s*(\d{3})\s*-\s*/i;
+  const apiPrefixMatch = apiPrefixPattern.exec(raw);
   const apiMatch = apiPrefixMatch
     ? [
         apiPrefixMatch[0],
