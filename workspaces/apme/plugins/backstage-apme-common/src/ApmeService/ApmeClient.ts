@@ -130,10 +130,13 @@ export class ApmeClient {
       ? await this.currentBaseUrl()
       : this.configBaseUrl;
     const url = this.buildUrl(endpoint, baseUrl);
+    const customHeaders = options.headers as Record<string, string> | undefined;
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      ...((options.headers as Record<string, string>) || {}),
     };
+    if (customHeaders) {
+      Object.assign(headers, customHeaders);
+    }
 
     const timeoutMs = requestOptions?.timeoutMs ?? 30_000;
     const controller = new AbortController();

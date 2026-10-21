@@ -84,7 +84,7 @@ export function formatApmeUserFacingError(raw: string): string {
   }
 
   // Prefer nested InputError.message from Backstage error JSON bodies.
-  const nestedMessage = raw.match(/"message"\s*:\s*"((?:\\.|[^"\\])*)"/);
+  const nestedMessage = /"message"\s*:\s*"((?:\\.|[^"\\])*)"/.exec(raw);
   if (nestedMessage?.[1]) {
     const decoded = nestedMessage[1]
       .replace(/\\n/g, ' ')
@@ -165,6 +165,23 @@ export function extractExistingPrUrlFromError(raw: string): string | null {
   return parsed?.url ?? null;
 }
 
+/** GitHub `/owner/repo/pull/N` or GitLab `/.../-/merge_requests/N` pathname. */
+const GITHUB_PR_PATH = /^\/[^/]+\/[^/]+\/pull\/(\d+)(?:\/|$)/i;
+const GITLAB_MR_PATH = /^(?:\/[^/]+)+\/-\/merge_requests\/(\d+)(?:\/|$)/i;
+
+/** Numeric PR/MR id from an SCM URL, if present. */
+export function prNumberFromUrl(url: string): number | undefined {
+  let pathname: string;
+  try {
+    pathname = new URL(url).pathname;
+  } catch {
+    pathname = url;
+  }
+  const numberMatch =
+    GITHUB_PR_PATH.exec(pathname) ?? GITLAB_MR_PATH.exec(pathname);
+  return numberMatch?.[1] ? Number.parseInt(numberMatch[1], 10) : undefined;
+}
+
 /** Parsed PR link from a gateway "PR already created…" error, if any. */
 export function parseExistingPrFromError(
   raw: string,
@@ -172,18 +189,16 @@ export function parseExistingPrFromError(
   if (!raw?.trim() || !isPrAlreadyCreatedError(raw)) {
     return null;
   }
-  const urlMatch = raw.match(
-    /https?:\/\/[^\s"'\\}\]]+\/(?:pull|merge_requests)\/\d+/i,
-  );
+  const urlMatch =
+    /https?:\/\/[^\s"'\\}\]]+\/(?:pull|merge_requests)\/\d+/i.exec(raw);
   if (!urlMatch?.[0]) {
     return null;
   }
   // NOSONAR - Simple trailing punctuation pattern; no backtracking risk
   const url = urlMatch[0].replace(/[.,;]+$/, ''); // NOSONAR
-  const numberMatch = url.match(/\/(?:pull|merge_requests)\/(\d+)/i);
   return {
     url,
-    prNumber: numberMatch ? parseInt(numberMatch[1], 10) : undefined,
+    prNumber: prNumberFromUrl(url),
   };
 }
 

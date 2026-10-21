@@ -10,6 +10,7 @@ import {
   formatApmeUserFacingError,
   isApmeConnectionError,
   parseExistingPrFromError,
+  prNumberFromUrl,
 } from './apmeConnectionError';
 
 describe('isApmeConnectionError', () => {
@@ -119,6 +120,46 @@ describe('formatApmeUserFacingError', () => {
         '{"detail":"PR already created for this activity: https://github.com/acme-scm/apme/pull/1"}',
       ),
     ).toMatch(/already exists[\s\S]*pull\/1/i);
+  });
+});
+
+describe('prNumberFromUrl', () => {
+  it('extracts GitHub and GitLab ids and ignores unrelated URLs', () => {
+    expect(prNumberFromUrl('https://github.com/acme/apme/pull/12')).toBe(12);
+    expect(
+      prNumberFromUrl('https://gitlab.com/acme/apme/-/merge_requests/9'),
+    ).toBe(9);
+    expect(prNumberFromUrl('https://github.com/acme/apme')).toBeUndefined();
+  });
+
+  it('does not match PR numbers embedded in query strings', () => {
+    expect(
+      prNumberFromUrl('https://github.com/acme/apme/issues/1?next=/pull/12'),
+    ).toBeUndefined();
+  });
+
+  it('does not match suffixes like /pull/12draft', () => {
+    expect(
+      prNumberFromUrl('https://github.com/acme/apme/pull/12draft'),
+    ).toBeUndefined();
+  });
+
+  it('matches /pull/12/ with trailing slash', () => {
+    expect(prNumberFromUrl('https://github.com/acme/apme/pull/12/')).toBe(12);
+  });
+
+  it('does not treat an unrelated path with an embedded pull segment as a PR', () => {
+    expect(
+      prNumberFromUrl('https://github.com/acme/apme/issues/1/pull/12'),
+    ).toBeUndefined();
+  });
+
+  it('extracts GitLab nested-group merge request ids', () => {
+    expect(
+      prNumberFromUrl(
+        'https://gitlab.com/my-group/subgroup/my-repo/-/merge_requests/9',
+      ),
+    ).toBe(9);
   });
 });
 
