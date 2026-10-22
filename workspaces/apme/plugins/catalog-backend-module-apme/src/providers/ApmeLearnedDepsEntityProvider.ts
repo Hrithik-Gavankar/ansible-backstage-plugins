@@ -67,7 +67,7 @@ export async function mapPool<T, R>(
     let index = nextIndex;
     nextIndex += 1;
     while (index < items.length) {
-      results[index] = await fn(items[index], index);
+      results[index] = await fn(items[index], index); // NOSONAR - bounded worker pool concurrency
       index = nextIndex;
       nextIndex += 1;
     }
